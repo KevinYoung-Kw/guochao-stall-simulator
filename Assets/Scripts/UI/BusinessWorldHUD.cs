@@ -149,14 +149,15 @@ namespace Guochao
             served = Text(header, "", new Vector2(233, 0), new Vector2(113, 46), 24, paper, TextAnchor.MiddleCenter);
             clock.fontStyle = cash.fontStyle = served.fontStyle = FontStyle.Bold;
             serviceNote = Card("Last order and clearing state", safe, new Vector2(366, 47), paper, true);
-            Anchor(serviceNote, new Vector2(0, 1), new Vector2(0, 1), new Vector2(18, -91));
+            // Status belongs beside the header; it must never cover the order row.
+            Anchor(serviceNote, new Vector2(.5f, 1), new Vector2(.5f, 1), new Vector2(30, -14));
             serviceText = Text(serviceNote, "", Vector2.zero, new Vector2(334, 41), 22, ink, TextAnchor.MiddleCenter);
             serviceNote.gameObject.SetActive(false);
 
             headerBlocker = header.GetComponent<Image>();
             headerBlocker.raycastTarget = true;
             noteBlocker = serviceNote.GetComponent<Image>();
-            noteBlocker.raycastTarget = true;
+            noteBlocker.raycastTarget = false;
 
             Button close = Control("收摊", safe, new Vector2(106, 56), owner.CloseDay, warning: true);
             Anchor((RectTransform)close.transform, Vector2.one, Vector2.one, new Vector2(-18, -16));
@@ -497,6 +498,13 @@ namespace Guochao
             Vector2 size=order?new Vector2(234,96):cook?new Vector2(194,70):serving?new Vector2(150,58):counterMeal?new Vector2(44,36):new Vector2(92,30);
             RectTransform rt=Card("Object readout "+target.kind,worldLayer,size,paper,true);
             Tag tag=new Tag{target=target,root=rt,size=size,face=rt.GetComponent<Image>()};
+            if(order)
+            {
+                // Reuse the game's painted ticket surface, while keeping the
+                // entire order as the original click target.
+                Sprite ticket=CreationMenuArt.SpriteFor(CreationMenuArt.Sheet.Card);
+                if(ticket!=null){tag.face.sprite=ticket;tag.face.type=Image.Type.Sliced;tag.face.pixelsPerUnitMultiplier=1.6f;}
+            }
             if(counterMeal)
             {
                 // 台面餐常驻只是 64x32 小标记（编号+价格），3D 餐物为主体；
@@ -522,7 +530,7 @@ namespace Guochao
                 tag.tail=tip;
                 StallSpeechTail tail=tip.gameObject.AddComponent<StallSpeechTail>();tail.color=paper;tail.raycastTarget=false;
                 tag.title=Text(rt,"",new Vector2(order?23:0,order?18:12),new Vector2(order?168:180,42),order?22:19,ink,order?TextAnchor.MiddleLeft:TextAnchor.MiddleCenter);tag.title.fontStyle=FontStyle.Bold;
-                tag.detail=Text(rt,"",new Vector2(order?23:0,order?-8:-10),new Vector2(order?168:180,25),16,ink,order?TextAnchor.MiddleLeft:TextAnchor.MiddleCenter);
+                tag.detail=Text(rt,"",new Vector2(order?23:0,order?-8:-10),new Vector2(order?168:180,25),order?20:16,ink,order?TextAnchor.MiddleLeft:TextAnchor.MiddleCenter);
                 RectTransform track=Card("Time track",rt,new Vector2(size.x-30,7),CampaignUI.Pale,false);track.anchoredPosition=new Vector2(0,-size.y*.5f+12);tag.track=track.GetComponent<Image>();
                 RectTransform fill=Card("Time remaining",track,track.sizeDelta,progressColour,false);tag.bar=fill.GetComponent<Image>();tag.bar.type=Image.Type.Filled;tag.bar.fillMethod=Image.FillMethod.Horizontal;tag.bar.fillOrigin=0;
                 if(order)
@@ -539,9 +547,9 @@ namespace Guochao
                     else medallion.gameObject.AddComponent<FreeMealPlateIcon>().raycastTarget=false;
                     // FLAVOR11：点了口味的订单在头像下方挂一枚小口味牌（底色=风味色、
                     // 短名），主名称仍是大字；没点口味的订单不显示。
-                    RectTransform chip=Node("Requested flavor chip",rt);tag.flavorChip=chip;chip.anchorMin=chip.anchorMax=new Vector2(.5f,.5f);chip.pivot=new Vector2(.5f,.5f);chip.sizeDelta=new Vector2(64,22);chip.anchoredPosition=new Vector2(-80,-28);
+                    RectTransform chip=Node("Requested flavor chip",rt);tag.flavorChip=chip;chip.anchorMin=chip.anchorMax=new Vector2(.5f,.5f);chip.pivot=new Vector2(.5f,.5f);chip.sizeDelta=new Vector2(66,30);chip.anchoredPosition=new Vector2(-88,-10);
                     tag.flavorFace=chip.gameObject.AddComponent<Image>();tag.flavorFace.sprite=rounded;tag.flavorFace.type=Image.Type.Sliced;tag.flavorFace.color=paper;tag.flavorFace.raycastTarget=false;
-                    tag.flavorText=Text(chip,"",Vector2.zero,new Vector2(60,20),15,paper,TextAnchor.MiddleCenter);tag.flavorText.fontStyle=FontStyle.Bold;
+                    tag.flavorText=Text(chip,"",Vector2.zero,new Vector2(62,30),19,paper,TextAnchor.MiddleCenter);tag.flavorText.fontStyle=FontStyle.Bold;
                     chip.gameObject.SetActive(false);
                     if(orderData!=null)BuildOrderIngredients(tag,orderData);
                     var hover=rt.gameObject.AddComponent<HUDPointerReveal>();hover.entered=()=>hoveredTag=target;hover.exited=()=>{if(hoveredTag==target)hoveredTag=null;};
@@ -570,17 +578,17 @@ namespace Guochao
             // Stable selection surfaces: hovering must not resize the target or
             // push a neighbour away from the pointer. Details live in the footer.
             expanded=order;
-            Vector2 size=order?new Vector2(220,132):new Vector2(136,48);
+            Vector2 size=order?new Vector2(250,142):new Vector2(136,48);
             if(tag.size==size)return;
             tag.size=size;tag.root.sizeDelta=size;tag.detail.gameObject.SetActive(expanded);
-            tag.title.rectTransform.anchoredPosition=order?new Vector2(31,34):new Vector2(0,expanded?15:5);
-            tag.title.rectTransform.sizeDelta=order?new Vector2(144,52):new Vector2(size.x-14,34);
-            tag.title.fontSize=order?18:20;
-            if(tag.portrait!=null){tag.portrait.anchoredPosition=new Vector2(-80,34);tag.portrait.sizeDelta=Vector2.one*46;}
-            if(tag.flavorChip!=null)tag.flavorChip.anchoredPosition=new Vector2(expanded?-80:-58,expanded?-28:-24);
-            tag.detail.rectTransform.anchoredPosition=order?new Vector2(0,-37):new Vector2(0,-11);
-            tag.detail.rectTransform.sizeDelta=new Vector2(order?198:size.x-14,27);
-            tag.track.rectTransform.sizeDelta=new Vector2(size.x-24,5);tag.track.rectTransform.anchoredPosition=new Vector2(0,-size.y*.5f+9);
+            tag.title.rectTransform.anchoredPosition=order?new Vector2(29,38):new Vector2(0,expanded?15:5);
+            tag.title.rectTransform.sizeDelta=order?new Vector2(178,64):new Vector2(size.x-14,34);
+            tag.title.fontSize=order?22:20;
+            if(tag.portrait!=null){tag.portrait.anchoredPosition=new Vector2(-92,37);tag.portrait.sizeDelta=Vector2.one*48;}
+            if(tag.flavorChip!=null)tag.flavorChip.anchoredPosition=new Vector2(-88,-10);
+            tag.detail.rectTransform.anchoredPosition=order?new Vector2(0,-43):new Vector2(0,-11);
+            tag.detail.rectTransform.sizeDelta=new Vector2(order?230:size.x-14,34);
+            tag.track.rectTransform.sizeDelta=new Vector2(size.x-24,8);tag.track.rectTransform.anchoredPosition=new Vector2(0,-size.y*.5f+5);
             tag.bar.rectTransform.sizeDelta=tag.track.rectTransform.sizeDelta;
         }
         private StallInteractionTarget ContextTarget()
@@ -615,7 +623,7 @@ namespace Guochao
                     ? "点亮起的订单，请顾客来取餐"
                     : clearing ? "这份还没人点 · 可另选成品" : "这份还没人点 · 先留在取餐区";
             }
-            else if(context==""&&tips&&!paused&&!HasOverlay)context=NextAction();
+            else if(context==""&&tips&&!paused&&!HasOverlay&&(orderGuide==null||!orderGuide.gameObject.activeSelf)&&session.HeldMeal==null)context=NextAction();
             bool guidance=owner.InteractionHint==""&&context!="";
             toastFace.color=guidance?ink:paper;
             hint.color=guidance?paper:ink;
@@ -670,19 +678,19 @@ namespace Guochao
                         string requestedFlavor=order.requestedFlavorId;
                         if(tag.flavorChip!=null)
                         {
-                            bool hasFlavor=false; // Flavor is readable on the detail line, without covering ingredients.
+                            bool hasFlavor=!string.IsNullOrEmpty(requestedFlavor);
                             tag.flavorChip.gameObject.SetActive(hasFlavor);
-                            if(hasFlavor){tag.flavorFace.color=FlavorColor(requestedFlavor);Set(tag.flavorText,StallInteractionInput.FlavorShortName(requestedFlavor));tag.flavorText.color=requestedFlavor=="S02"?ink:paper;}
+                            if(hasFlavor){tag.flavorFace.color=FlavorColor(requestedFlavor);Set(tag.flavorText,StallInteractionInput.FlavorShortName(requestedFlavor));tag.flavorText.color=requestedFlavor=="S01"?paper:ink;}
                         }
                         // 订单只读：风险单提示追回；已选台面餐时适配单高亮显示报价、
                         // 错配单显示真实原因（不执行）；未选餐只提示先上台。
                         string detail;
                         if(riskPending)detail="点击这位顾客 · 追回款项";
                         else if(!order.arrived)detail="走近中";
-                        else if(session.ReadyMeals.Any(m=>owner.PickupOrderForMeal(m.id)==order.id))detail="正在来取餐";
-                        else if(deliverable)detail=(owner.ServiceUsesCounterMeal?"叫他取餐 · ":"递给他 · ")+CampaignUI.Money(session.OrderPriceCents(order.id));
+                        else if(session.ReadyMeals.Any(m=>owner.PickupOrderForMeal(m.id)==order.id))detail="顾客取餐中";
+                        else if(deliverable)detail=(owner.ServiceUsesCounterMeal?"点此叫客 · ":"点此递餐 · ")+CampaignUI.Money(session.OrderPriceCents(order.id));
                         else if(mealId!=""||session.HeldMeal!=null)detail=blockReason==""?"与订单不符":LimitCells(blockReason,10);
-                        else detail=(string.IsNullOrEmpty(requestedFlavor)?"原味":StallInteractionInput.FlavorShortName(requestedFlavor))+" · 点开看做法";
+                        else detail=string.IsNullOrEmpty(requestedFlavor)?"原味 · 点开看做法":"点开看做法";
                         Set(tag.detail,detail);
                         tag.track.gameObject.SetActive(order.arrived);
                         tag.bar.fillAmount=Mathf.Clamp01(order.patience/order.maxPatience);tag.bar.color=tag.bar.fillAmount<.25f?danger:progressColour;tag.button.interactable=order.arrived&&!paused&&!HasOverlay&&owner.CanInteract;
@@ -903,13 +911,13 @@ namespace Guochao
         {
             Vector2 size=new Vector2(360,196);
             lanePanel=BuildFixedCard("Lane operation card",size);
-            lanePanel.root.anchorMin=lanePanel.root.anchorMax=new Vector2(1,0);lanePanel.root.pivot=new Vector2(1,0);lanePanel.root.anchoredPosition=new Vector2(-16,130);
+            lanePanel.root.anchorMin=lanePanel.root.anchorMax=new Vector2(1,0);lanePanel.root.pivot=new Vector2(1,0);lanePanel.root.anchoredPosition=new Vector2(-16,110);
         }
         private void BuildMealCard()
         {
             Vector2 size=new Vector2(360,196);
             mealCard=BuildFixedCard("Selected counter meal card",size);
-            mealCard.root.anchorMin=mealCard.root.anchorMax=new Vector2(1,0);mealCard.root.pivot=new Vector2(1,0);mealCard.root.anchoredPosition=new Vector2(-16,130);
+            mealCard.root.anchorMin=mealCard.root.anchorMax=new Vector2(1,0);mealCard.root.pivot=new Vector2(1,0);mealCard.root.anchoredPosition=new Vector2(-16,110);
         }
         private void RefreshLanePanel(bool paused)
         {

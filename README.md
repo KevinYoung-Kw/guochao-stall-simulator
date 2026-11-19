@@ -4,9 +4,9 @@
 
 [在线游戏](https://www.kw-aigc.cn/demos/guochao/) · [项目报告](docs/PROJECT-REPORT.md) · [源代码](https://github.com/KevinYoung-Kw/guochao-stall-simulator)
 
-![当前版本实机界面：经营场景](docs/screenshots/business-v20.webp)
+![经营场景示例](docs/screenshots/business-v20.webp)
 
-*当前版本的经营场景实机截图。*
+*经营场景示例；界面仍在迭代。*
 
 ## 这一版可以怎么玩
 
@@ -31,6 +31,10 @@
 | 音乐 / 音效音量 | 暂停菜单中的“音乐”和“音效”按钮 |
 
 营业时可以先做菜，再决定卖给谁。把餐放在取餐台后，再点这份餐和要取餐的顾客；取餐动画进行时，摊主可以继续备菜。
+
+## v22 界面与备货改进
+
+营业订单、口味与做法卡更加清晰；按订单选顾客递餐，状态提示不会挡住订单。采购超时时按购物顺序同时检查预算与装车空间；备货单会提示仍在家中的相关设备和能源。
 
 ## v21 出餐热修
 

@@ -18,31 +18,31 @@ namespace Guochao
 
         private void BuildOrderGuide()
         {
-            orderGuide=Card("Customer cooking guide",safe,new Vector2(440,296),paper,false);
+            orderGuide=Card("Customer cooking guide",safe,new Vector2(490,300),paper,false);
             var sheet=CreationMenuArt.SpriteFor(CreationMenuArt.Sheet.Paper);
             if(sheet!=null){var face=orderGuide.GetComponent<Image>();face.sprite=sheet;face.type=Image.Type.Sliced;face.color=Color.white;}
-            Anchor(orderGuide,Vector2.one,Vector2.one,new Vector2(-16,-216));
+            Anchor(orderGuide,Vector2.one,Vector2.one,new Vector2(-16,-230));
             orderGuide.GetComponent<Image>().raycastTarget=true;
-            guideTitle=Text(orderGuide,"",Vector2.zero,new Vector2(316,42),24,ink);guideTitle.fontStyle=FontStyle.Bold;
+            guideTitle=Text(orderGuide,"",Vector2.zero,new Vector2(366,46),26,ink);guideTitle.fontStyle=FontStyle.Bold;
             Anchor(guideTitle.rectTransform,new Vector2(.5f,1),new Vector2(.5f,.5f),new Vector2(-40,-29));
-            Button close=Control("收起",orderGuide,new Vector2(68,40),()=>guideOrderId=-1);close.GetComponentInChildren<Text>().fontSize=18;
-            Anchor((RectTransform)close.transform,new Vector2(.5f,1),new Vector2(.5f,.5f),new Vector2(174,-29));
+            Button close=Control("收起",orderGuide,new Vector2(72,42),()=>guideOrderId=-1);close.GetComponentInChildren<Text>().fontSize=20;
+            Anchor((RectTransform)close.transform,new Vector2(.5f,1),new Vector2(.5f,.5f),new Vector2(198,-29));
             for(int i=0;i<6;i++)
             {
-                int column=i%3,row=i/3;float x=-190+column*142,y=-77-row*52;
+                int column=i%3,row=i/3;float x=-218+column*160,y=-82-row*60;
                 var rt=Node("Recipe ingredient "+i,orderGuide);Anchor(rt,new Vector2(.5f,1),new Vector2(.5f,.5f),new Vector2(x,y));rt.sizeDelta=Vector2.one*34;
                 guideIngredientIcons[i]=rt.gameObject.AddComponent<Image>();guideIngredientIcons[i].preserveAspect=true;guideIngredientIcons[i].raycastTarget=false;
-                guideIngredientLabels[i]=Text(orderGuide,"",Vector2.zero,new Vector2(94,52),18,ink);
-                Anchor(guideIngredientLabels[i].rectTransform,new Vector2(.5f,1),new Vector2(.5f,.5f),new Vector2(x+64,y));
+                guideIngredientLabels[i]=Text(orderGuide,"",Vector2.zero,new Vector2(112,60),20,ink);
+                Anchor(guideIngredientLabels[i].rectTransform,new Vector2(.5f,1),new Vector2(.5f,.5f),new Vector2(x+76,y));
             }
-            guideSteps=Text(orderGuide,"",new Vector2(0,-4),new Vector2(404,35),20,ink);guideSteps.fontStyle=FontStyle.Bold;
-            guideEquipment=Text(orderGuide,"",new Vector2(0,-42),new Vector2(404,54),18,ink);
-            guidePackage=Text(orderGuide,"",new Vector2(0,-78),new Vector2(404,34),18,ink);
-            guideNextBox=Card("Next preparation step",orderGuide,new Vector2(410,56),CampaignUI.Pale,false);
-            guideNext=Text(guideNextBox,"",Vector2.zero,new Vector2(388,52),19,ink);
+            guideSteps=Text(orderGuide,"",new Vector2(0,-4),new Vector2(460,35),22,ink);guideSteps.fontStyle=FontStyle.Bold;
+            guideEquipment=Text(orderGuide,"",new Vector2(0,-42),new Vector2(460,60),20,ink);
+            guidePackage=Text(orderGuide,"",new Vector2(0,-78),new Vector2(460,34),20,ink);
+            guideNextBox=Card("Next preparation step",orderGuide,new Vector2(460,50),CampaignUI.Pale,false);
+            guideNext=Text(guideNextBox,"",Vector2.zero,new Vector2(440,46),21,ink);
             orderGuide.gameObject.SetActive(false);
             heldCard=BuildFixedCard("Packed meal in hand",new Vector2(360,196));
-            Anchor(heldCard.root,new Vector2(1,0),new Vector2(1,0),new Vector2(-16,130));
+            Anchor(heldCard.root,new Vector2(1,0),new Vector2(1,0),new Vector2(-16,110));
         }
         public void ShowOrderGuide(int orderId)
         {
@@ -63,12 +63,12 @@ namespace Guochao
             orderGuide.gameObject.SetActive(show);
             if(!show)return;
             var info=OrderCookingGuide.Read(session,guideOrderId);
-            float extra=info.ingredients.Count>3?52:0;
-            orderGuide.sizeDelta=new Vector2(440,296+extra);
-            Anchor(guideSteps.rectTransform,new Vector2(.5f,1),new Vector2(.5f,.5f),new Vector2(0,-126-extra));
-            Anchor(guideEquipment.rectTransform,new Vector2(.5f,1),new Vector2(.5f,.5f),new Vector2(0,-166-extra));
-            Anchor(guidePackage.rectTransform,new Vector2(.5f,1),new Vector2(.5f,.5f),new Vector2(0,-207-extra));
-            Anchor(guideNextBox,new Vector2(.5f,1),new Vector2(.5f,.5f),new Vector2(0,-253-extra));
+            float extra=info.ingredients.Count>3?60:0;
+            orderGuide.sizeDelta=new Vector2(490,300+extra);
+            Anchor(guideSteps.rectTransform,new Vector2(.5f,1),new Vector2(.5f,.5f),new Vector2(0,-131-extra));
+            Anchor(guideEquipment.rectTransform,new Vector2(.5f,1),new Vector2(.5f,.5f),new Vector2(0,-181-extra));
+            Anchor(guidePackage.rectTransform,new Vector2(.5f,1),new Vector2(.5f,.5f),new Vector2(0,-229-extra));
+            Anchor(guideNextBox,new Vector2(.5f,1),new Vector2(.5f,.5f),new Vector2(0,-272-extra));
             Set(guideTitle,info.title);
             for(int i=0;i<6;i++)
             {
@@ -90,12 +90,13 @@ namespace Guochao
             tag.recipeIngredients=new Image[3];
             for(int i=0;i<3;i++)
             {
-                var rt=Node("Order ingredient "+i,tag.root);rt.anchoredPosition=new Vector2(-81+i*35,-10);rt.sizeDelta=Vector2.one*27;
+                bool hasFlavor=!string.IsNullOrEmpty(order.requestedFlavorId);
+                var rt=Node("Order ingredient "+i,tag.root);rt.anchoredPosition=new Vector2(hasFlavor?-38+i*31:-90+i*36,-10);rt.sizeDelta=Vector2.one*29;
                 var image=rt.gameObject.AddComponent<Image>();image.raycastTarget=false;image.preserveAspect=true;tag.recipeIngredients[i]=image;
                 image.gameObject.SetActive(i<readout.ingredients.Count);
                 if(i<readout.ingredients.Count)image.sprite=overlayIcons.Get(readout.ingredients[i].id);
             }
-            tag.recipeMethod=Text(tag.root,(readout.ingredients.Count>3?"+"+(readout.ingredients.Count-3)+" · ":"")+OrderCookingGuide.MethodLabel(readout.method),new Vector2(65,-10),new Vector2(65,28),19,ink,TextAnchor.MiddleRight);
+            tag.recipeMethod=Text(tag.root,(readout.ingredients.Count>3?"+"+(readout.ingredients.Count-3)+" · ":"")+OrderCookingGuide.MethodLabel(readout.method),new Vector2(82,-10),new Vector2(70,32),21,ink,TextAnchor.MiddleRight);
             tag.recipeMethod.fontStyle=FontStyle.Bold;
         }
         private void RefreshHeldMealCard(bool paused)
@@ -112,9 +113,8 @@ namespace Guochao
             string key=meal.id+"|"+place+"|"+owner.CanInteract;
             if(key!=heldCardKey)
             {
-                heldCardKey=key;RebuildChoices(heldCard,new Vector2(360,196),2);
+                heldCardKey=key;RebuildChoices(heldCard,new Vector2(360,196),1);
                 SetChoice(heldCard,0,"放到取餐区",()=>owner.PlaceHeldMeal(),place,false);
-                SetChoice(heldCard,1,"直接递给顾客",()=>owner.ShowInteractionHint("点想要这份餐的顾客，摊主会走过去递餐"),owner.CanInteract,true);
             }
         }
     }

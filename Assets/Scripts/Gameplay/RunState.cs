@@ -703,18 +703,23 @@ namespace Guochao
             bool returnedHeld = !string.IsNullOrEmpty(HeldGrocery);
             HeldGrocery = "";
             int returnedForBudget=0,returnedForSpace=0;
-            if(!Paid&&LoadValidator!=null)
+            if(!Paid)
             {
+                // Decide money and space for each occurrence together. A box
+                // that cannot be afforded must not reserve vehicle space and
+                // force a later affordable box back to the shelf.
+                int budget=CashCents;
                 var accepted=new List<string>();
                 for(int i=0;i<Cart.Count;)
-                {accepted.Add(Cart[i]);if(string.IsNullOrEmpty(CheckPendingCargo(accepted)))i++;else{accepted.RemoveAt(accepted.Count-1);Cart.RemoveAt(i);returnedForSpace++;}}
-            }
-            if (Cart.Count > 0 && !Paid && CartTotalCents>CashCents)
-            {
-                int budget=CashCents;
-                // Settle in basket order; unaffordable goods return without a charge.
-                for(int i=0;i<Cart.Count;)
-                {int price=PriceCents(Cart[i]);if(price<=budget){budget-=price;i++;}else{Cart.RemoveAt(i);returnedForBudget++;}}
+                {
+                    string id=Cart[i];
+                    int price=PurchaseItemPriceCents(id);
+                    if(price>budget){Cart.RemoveAt(i);returnedForBudget++;continue;}
+                    accepted.Add(id);
+                    if(!string.IsNullOrEmpty(CheckPendingCargo(accepted)))
+                    {accepted.RemoveAt(accepted.Count-1);Cart.RemoveAt(i);returnedForSpace++;continue;}
+                    budget-=price;i++;
+                }
             }
             if(Cart.Count>0&&!Paid)CompletePayment();
             if(Cart.Count>0&&!Load())

@@ -26,7 +26,9 @@ namespace Guochao
         // empty when there is no confirmable anchor.
         public string location = "";
         public string note = "";
-        public int required, owned, inBasket, paidCargo, paidWaiting, missing, estimatedCents;
+        // atHome is the subset of owned energy still physically at home; it
+        // is not an extra quantity and cannot power equipment before loading.
+        public int required, owned, atHome, inBasket, paidCargo, paidWaiting, missing, estimatedCents;
         public bool equipment, optional, estimateUncertain;
     }
 
@@ -325,9 +327,22 @@ namespace Guochao
                     // Loaded gear already suffices; nothing to surface.
                     continue;
                 }
-                // Dish relies on home-owned gear → remind to load it.
+                // Find a sufficient, minimal set of the player's home items
+                // for this plan. A compatible base already in the vehicle (or
+                // basket) means an alternate one at home is optional, not a
+                // requirement. Check the same equipment rules used above,
+                // including newly suggested equipment, rather than matching
+                // any Bxx prefix or asking the player to bring every stove.
+                var equipmentForDish = new HashSet<string>(planOwned);
+                if (!PlanCovered(pair.Key, index, equipmentForDish, suggested)) continue;
                 foreach (string id in homeOnly)
-                    if (UsedBy(id, pair.Key))
+                {
+                    if (!UsedBy(id, pair.Key) || !equipmentForDish.Remove(id)) continue;
+                    if (!PlanCovered(pair.Key, index, equipmentForDish, suggested))
+                        equipmentForDish.Add(id);
+                }
+                foreach (string id in homeOnly)
+                    if (UsedBy(id, pair.Key) && equipmentForDish.Contains(id))
                     {
                         if (!equipLines.TryGetValue(id, out var line))
                         { line = new MealPlanLine { key = id, name = BusinessSession.Name(id), equipment = true, required = 1 }; equipLines[id] = line; }
@@ -357,6 +372,34 @@ namespace Guochao
 
             // ── Fuel: real pools, plan-chosen base, honest gaps ────────────
             var fuelDemand = new Dictionary<string, int>();
+            string HomeEnergyHints(StallRecipe recipe, int recipeIndex)
+            {
+                var hints = new List<string>();
+                var includedEnergy = new HashSet<string>();
+                string[] candidates = BaseCandidates(recipe);
+                foreach (string candidate in candidates)
+                {
+                    if (!planOwned.Contains(candidate)) continue;
+                    string energy = BaseEnergy(candidate);
+                    if (energy == "none" || energy == "" || includedEnergy.Contains(energy)) continue;
+                    string device = energy == "gas" ? "E03" : energy == "cartridge" ? "B02" : energy == "coal" ? "E01" : "E05";
+                    if (!homeOnly.Contains(device) || basketEquip.Contains(device) || cargoEquip.Contains(device)) continue;
+
+                    // Test this candidate against the actual recipe/equipment
+                    // rules with the other candidate bases removed. A stove
+                    // that cannot use the player's vessel is not a real option
+                    // and must not generate an unrelated home-energy hint.
+                    var oneBase = new HashSet<string>(planOwned);
+                    foreach (string other in candidates) if (other != candidate) oneBase.Remove(other);
+                    if (!PlanCovered(recipe, recipeIndex, oneBase, new HashSet<string>())) continue;
+
+                    includedEnergy.Add(energy);
+                    string type = energy == "gas" ? "煤气炉" : energy == "cartridge" ? "卡式炉" : energy == "coal" ? "煤炉" : "用电设备";
+                    string name = energy == "gas" ? "煤气罐" : energy == "cartridge" ? "卡式炉" : energy == "coal" ? "蜂窝煤" : "电瓶";
+                    hints.Add(type + "：" + name + "在家（余 " + Math.Max(0, ownedFuel[EnergySlot(energy)]) + " 点）");
+                }
+                return hints.Count == 0 ? "" : "选用相应炉具才需装车：" + string.Join("；", hints) + "。";
+            }
             foreach (var pair in planned)
             {
                 int index = Array.IndexOf(BusinessSession.Recipes, pair.Key);
@@ -368,8 +411,9 @@ namespace Guochao
                 string bottom = PlanBaseFor(recipe, planOwned);
                 if (unresolvedEquipment.Contains(index) || baseCount != 1 || suggested.Contains(bottom))
                 {
+                    string hint = HomeEnergyHints(recipe, index);
                     Uncertain("energy:" + recipe.id, recipe.name + " · 能源",
-                        "先确认使用的炉具与能源余量，再估算补充数量；本项暂不计价。", false);
+                        hint == "" ? "先确认使用的炉具与能源余量，再估算补充数量；本项暂不计价。" : hint, false);
                     continue;
                 }
                 if (bottom == "")
@@ -397,12 +441,15 @@ namespace Guochao
             {
                 string energy = pair.Key;
                 int slot = EnergySlot(energy);
+                string homeDevice = energy == "gas" ? "E03" : energy == "cartridge" ? "B02" : energy == "coal" ? "E01" : "E05";
+                bool homeEnergy = homeOnly.Contains(homeDevice) && !basketEquip.Contains(homeDevice) && !cargoEquip.Contains(homeDevice);
                 var line = new MealPlanLine
                 {
                     key = energy,
                     name = energy == "gas" ? "煤气余量" : energy == "cartridge" ? "卡式气余量" : energy == "coal" ? "蜂窝煤热能" : "电量",
                     required = pair.Value,
                     owned = Math.Max(0, ownedFuel[slot]),
+                    atHome = homeEnergy ? Math.Max(0, ownedFuel[slot]) : 0,
                     inBasket = Math.Max(0, basketFuel[slot]),
                     paidCargo = Math.Max(0, cargoFuel[slot]),
                     paidWaiting = Math.Max(0, waitingFuel[slot]),
@@ -425,10 +472,16 @@ namespace Guochao
                         pricedAll = false;
                         if (energy == "gas")
                             line.note = hasGasHardware
-                                ? "煤气罐已经在手但余量不够；一罐只能买一次，今天没有补充装可买，这个缺口没法补。"
+                                ? "煤气余量不够；一罐只能买一次，今天没有补充装可买，这个缺口没法补。"
                                 : "没有煤气罐，也没有可买的补充渠道；需要一罐新煤气（见设备行）。";
                         else line.note = "这类能源今天没有能买到的补充装，缺口未计价。";
                     }
+                }
+                if (homeEnergy)
+                {
+                    string deviceName = energy == "gas" ? "煤气罐" : energy == "cartridge" ? "卡式炉" : energy == "coal" ? "蜂窝煤" : "电瓶";
+                    string homeNote = deviceName + "在家（余 " + line.atHome + " 点），先装车。";
+                    line.note = homeNote + (string.IsNullOrEmpty(line.note) ? "" : " " + line.note);
                 }
                 report.lines.Add(line);
             }
@@ -463,9 +516,9 @@ namespace Guochao
         }
 
         static bool UsedBy(string id, StallRecipe recipe)
-            => Array.IndexOf(recipe.vessels, id) >= 0 || Array.IndexOf(recipe.tools, id) >= 0
+            => !string.IsNullOrEmpty(id) && (Array.IndexOf(recipe.vessels, id) >= 0 || Array.IndexOf(recipe.tools, id) >= 0
                || recipe.id == "fried_skewer" && id == "U10"
-               || id.Length == 3 && id[0] == 'B' && !recipe.cold && !recipe.microwave;
+               || !recipe.cold && Array.IndexOf(BaseCandidates(recipe), id) >= 0);
 
         static int PotCapacity(StallRecipe recipe, HashSet<string> equipment)
         {
