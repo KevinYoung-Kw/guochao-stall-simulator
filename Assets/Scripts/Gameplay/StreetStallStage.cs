@@ -158,7 +158,7 @@ namespace Guochao
         }
         private void Environment()
         {
-            Material paving=Paint("Warm grey pavers",new Color(.53f,.51f,.50f)),seam=Paint("Paver mortar",new Color(.39f,.39f,.38f));
+            districtPaving=Paint("Warm grey pavers",new Color(.53f,.51f,.50f));districtSeam=Paint("Paver mortar",new Color(.39f,.39f,.38f));Material paving=districtPaving,seam=districtSeam;
             Shape("Pavement foundation",transform,new Vector3(0,-.12f,0),new Vector3(30,.2f,22),seam);
             // Cover the expanded fixed operating view, including the direct
             // handoff bay and foreground. Keep the original brick/mortar size,
@@ -169,20 +169,21 @@ namespace Guochao
             CombineDecorations(streetPaving);
             for(int n=-1;n<=1;n++)
             {
+                Transform shopVisual=Group("District original shop "+n,transform);originalShopVisuals[n+1]=shopVisual;
                 float x=n*4.3f;
-                Shape("Neighbouring shop",transform,new Vector3(x,2.3f,5.6f),new Vector3(4.2f,4.6f,2),cream);
+                Shape("Neighbouring shop",shopVisual,new Vector3(x,2.3f,5.6f),new Vector3(4.2f,4.6f,2),cream);
                 SolidBox("Shop facade "+n,new Vector3(x,1.2f,4.51f),new Vector3(4.2f,2.4f,.13f));
                 // Query-only occluder hugging the 4.6 m visual front so a
                 // camera ray crossing the visual face above the 2.4 m solid
                 // still refuses targets hidden behind the facade. Navigation
                 // and character physics never see this layer.
                 QueryBox("Shop facade "+n,new Vector3(x,2.3f,4.55f),new Vector3(4.2f,4.6f,.9f));
-                Shape("Rolled shop shutter",transform,new Vector3(x,1.22f,4.56f),new Vector3(3.45f,2.44f,.12f),forest);
-                for(int k=0;k<17;k++)Shape("Shutter rib",transform,new Vector3(x,.10f+k*.14f,4.47f),new Vector3(3.45f,.018f,.028f),steel);
-                Shape("Shop sign",transform,new Vector3(x,2.88f,4.42f),new Vector3(3.85f,.64f,.18f),rust);
-                WorldText(n==0?"早点 · 热食":n<0?"街坊杂货":"日用百货",transform,new Vector3(x,2.88f,4.31f),.28f);
-                Shape("Canvas sunshade",transform,new Vector3(x,2.43f,4.18f),new Vector3(3.88f,.10f,.80f),cream);
-                for(int b=0;b<8;b++)Shape("Sunshade colour stripe",transform,new Vector3(x-1.7f+b*.48f,2.49f,4.18f),new Vector3(.24f,.012f,.80f),rust);
+                Shape("Rolled shop shutter",shopVisual,new Vector3(x,1.22f,4.56f),new Vector3(3.45f,2.44f,.12f),forest);
+                for(int k=0;k<17;k++)Shape("Shutter rib",shopVisual,new Vector3(x,.10f+k*.14f,4.47f),new Vector3(3.45f,.018f,.028f),steel);
+                Shape("Shop sign",shopVisual,new Vector3(x,2.88f,4.42f),new Vector3(3.85f,.64f,.18f),rust);
+                WorldText(n==0?"早点 · 热食":n<0?"街坊杂货":"日用百货",shopVisual,new Vector3(x,2.88f,4.31f),.28f);
+                Shape("Canvas sunshade",shopVisual,new Vector3(x,2.43f,4.18f),new Vector3(3.88f,.10f,.80f),cream);
+                for(int b=0;b<8;b++)Shape("Sunshade colour stripe",shopVisual,new Vector3(x-1.7f+b*.48f,2.49f,4.18f),new Vector3(.24f,.012f,.80f),rust);
             }
             for(int side=-1;side<=1;side+=2)
             {
@@ -190,10 +191,11 @@ namespace Guochao
                 // vendor work aisle and customer pickup stands. Move the visible
                 // pot and its unchanged solid together; never route through it.
                 Vector3 p=new Vector3(side*5.5f,0,side>0?-2.3f:1.6f);
-                Shape("Street planter",transform,p+Vector3.up*.24f,new Vector3(.7f,.48f,.66f),cream);
+                Transform planterVisual=Group("District original planter "+side,transform);originalPlanterVisuals[side<0?0:1]=planterVisual;
+                Shape("Street planter",planterVisual,p+Vector3.up*.24f,new Vector3(.7f,.48f,.66f),cream);
                 SolidBox("Planter and foliage",p+Vector3.up*.55f,new Vector3(.86f,1.1f,.76f));
                 for(int leaf=0;leaf<7;leaf++)
-                {float a=leaf*2.4f;Shape("Broad leaves",transform,p+new Vector3(Mathf.Sin(a)*.22f,.70f+(leaf%3)*.1f,Mathf.Cos(a)*.19f),new Vector3(.40f,.52f,.31f),foliage,PrimitiveType.Sphere);}
+                {float a=leaf*2.4f;Shape("Broad leaves",planterVisual,p+new Vector3(Mathf.Sin(a)*.22f,.70f+(leaf%3)*.1f,Mathf.Cos(a)*.19f),new Vector3(.40f,.52f,.31f),foliage,PrimitiveType.Sphere);}
             }
             Transform board=Group("Breakfast chalkboard",transform);board.position=new Vector3(-4.7f,0,1.1f);board.rotation=Quaternion.Euler(0,12,0);
             SolidBox("Menu chalkboard",board.position+new Vector3(0,.8f,.02f),new Vector3(.86f,1.6f,.34f));
@@ -271,12 +273,9 @@ namespace Guochao
                 // One visible front edge per pack: the previous 0.23 m rows
                 // overlapped 0.30 m boxes and their 0.37 m picking volumes.
                 Transform pack=Group("Package "+id,cooking);pack.position=new Vector3(2.72f+pk*.48f,1.01f,-.62f);
-                bool bag=id=="P03"||id=="P04"||id=="P09";
                 Transform stacks=Group("Visible package stock "+id,pack);
                 var stockNodes=new List<Transform>();
-                for(int n=0;n<4;n++)stockNodes.Add(Shape("Stacked "+id,stacks,new Vector3(0,n*.022f,0),new Vector3(.35f,.025f,.30f),bag?dough:white).transform);
-                Transform topNode=bag?Shape("Paper bag fold",stacks,new Vector3(0,.1f,.10f),new Vector3(.31f,.02f,.065f),wood).transform:Shape("Raised box lid",stacks,new Vector3(0,.12f,.16f),new Vector3(.35f,.03f,.30f),white).transform;
-                if(!bag)topNode.localRotation=Quaternion.Euler(-62,0,0);
+                Transform topNode=BuildPackageStock(id,stacks,stockNodes);
                 packageStockNodes[id]=stockNodes;packageTopNodes[id]=topNode;
                 Shape("Magazine support tray",pack,new Vector3(0,-.075f,0),new Vector3(.40f,.045f,.36f),steel);
                 SolidBox("Package magazine "+id,new Vector3(pack.position.x,.935f,pack.position.z),new Vector3(.40f,.045f,.36f));
@@ -302,6 +301,90 @@ namespace Guochao
             SolidBox("Counter fascia",new Vector3(1.07f,.85f,-.53f),new Vector3(2.86f,.30f,.06f));
             SolidBox("Folding support",new Vector3(2.35f,.51f,.37f),new Vector3(.065f,1.02f,.065f));
             Physics.SyncTransforms();
+        }
+        // 每种包材的堆叠层造型：一层 = 一个可显隐 Transform（Counter.cs 只按
+        // 数量切显隐，层内 1–4 个 Shape 仅为轮廓细节）。packageStockNodes 仍恰
+        // 4 个、packageTopNodes 仍恰 1 个；层高度与 .022 层距匹配，整体不越出
+        // 原 .39×.29×.37 点选判定附近。P08 是竖直封口膜饮料杯，P05 是矩形卡扣
+        // 饭盒，P04 是牛皮纸袋——三者轮廓绝不混同。
+        private Transform BuildPackageStock(string id,Transform stacks,List<Transform> stockNodes)
+        {
+            for(int n=0;n<4;n++){Transform layer=PackageStockLayer(id,stacks);layer.localPosition=new Vector3(0,n*.022f,0);stockNodes.Add(layer);}
+            bool bag=id=="P04"||id=="P09";
+            Transform topNode;
+            if(bag)topNode=Shape("Paper bag fold",stacks,new Vector3(0,.1f,.10f),new Vector3(.31f,.02f,.065f),id=="P04"?wood:dough).transform;
+            else if(id=="P08")
+            {
+                Transform film=Group("Sealed film top",stacks);film.localPosition=new Vector3(0,.148f,0);
+                Shape("Film sheet",film,Vector3.zero,new Vector3(.15f,.008f,.15f),white,PrimitiveType.Cylinder);
+                Shape("Straw",film,new Vector3(.03f,.018f,0),new Vector3(.014f,.018f,.014f),rust,PrimitiveType.Cylinder);
+                topNode=film;
+            }
+            else if(id=="P12")topNode=Shape("Bamboo cup rim",stacks,new Vector3(0,.16f,0),new Vector3(.15f,.004f,.15f),dough,PrimitiveType.Cylinder).transform;
+            else if(id=="P07"||id=="P10")topNode=Shape("Raised tub lid",stacks,new Vector3(0,.12f,.14f),new Vector3(.24f,.012f,.24f),white,PrimitiveType.Cylinder).transform;
+            else topNode=Shape("Raised box lid",stacks,new Vector3(0,.12f,.16f),new Vector3(.35f,.03f,.30f),white).transform;
+            if(!bag&&id!="P08"&&id!="P12")topNode.localRotation=Quaternion.Euler(-62,0,0);
+            return topNode;
+        }
+        private Transform PackageStockLayer(string id,Transform parent)
+        {
+            Transform layer=Group("Stacked "+id,parent);
+            switch(id)
+            {
+                case "P02": // 发泡盒：白盒+外凸盖沿
+                    Shape("Foam box",layer,new Vector3(0,.011f,0),new Vector3(.28f,.022f,.23f),white);
+                    Shape("Foam lid lip",layer,new Vector3(0,.026f,0),new Vector3(.30f,.008f,.25f),white);
+                    break;
+                case "P03": // 防油纸托与竹签
+                    Shape("Paper skewer tray",layer,new Vector3(0,.008f,0),new Vector3(.25f,.016f,.18f),dough);
+                    for(int i=0;i<3;i++)Shape("Bamboo skewer",layer,new Vector3(-.07f+i*.07f,.02f,0),new Vector3(.01f,.008f,.21f),wood);
+                    break;
+                case "P04": // 牛皮纸袋（扁、牛皮色）
+                    Shape("Flat kraft bag",layer,new Vector3(0,.007f,0),new Vector3(.24f,.014f,.19f),wood);
+                    Shape("Kraft fold",layer,new Vector3(0,.016f,.08f),new Vector3(.20f,.005f,.03f),dough);
+                    break;
+                case "P05": // 方形 PP 卡扣密封餐盒：深色盒身+浅盖+两侧朱红卡扣
+                    Shape("Clip box base",layer,new Vector3(0,.009f,0),new Vector3(.27f,.018f,.21f),ink);
+                    Shape("Clip box lid",layer,new Vector3(0,.022f,0),new Vector3(.29f,.007f,.23f),cream);
+                    Shape("Seal clip L",layer,new Vector3(-.148f,.016f,0),new Vector3(.018f,.016f,.06f),rust);
+                    Shape("Seal clip R",layer,new Vector3(.148f,.016f,0),new Vector3(.018f,.016f,.06f),rust);
+                    break;
+                case "P06": // 分格大餐盒：最大 footprint+盖面分格条
+                    Shape("Compartment base",layer,new Vector3(0,.010f,0),new Vector3(.33f,.020f,.27f),white);
+                    Shape("Compartment lid",layer,new Vector3(0,.024f,0),new Vector3(.35f,.007f,.29f),white);
+                    Shape("Divider long",layer,new Vector3(0,.030f,0),new Vector3(.010f,.008f,.24f),cream);
+                    Shape("Divider cross",layer,new Vector3(0,.030f,0),new Vector3(.30f,.008f,.010f),cream);
+                    break;
+                case "P07": // 圆纸汤碗：矮圆碗+碗盖
+                    Shape("Soup bowl",layer,new Vector3(0,.009f,0),new Vector3(.23f,.018f,.23f),cream,PrimitiveType.Cylinder);
+                    Shape("Bowl lid",layer,new Vector3(0,.022f,0),new Vector3(.235f,.006f,.235f),white,PrimitiveType.Cylinder);
+                    break;
+                case "P08": // 封口饮料杯：竖直圆杯+封口膜，一眼不是饭盒
+                    Shape("Nested cup",layer,new Vector3(0,.04f,0),new Vector3(.13f,.04f,.13f),IcePale,PrimitiveType.Cylinder);
+                    Shape("Cup rim",layer,new Vector3(0,.08f,0),new Vector3(.15f,.004f,.15f),white,PrimitiveType.Cylinder);
+                    break;
+                case "P09": // 大纸袋（扁）
+                    Shape("Flat carrier bag",layer,new Vector3(0,.007f,0),new Vector3(.23f,.014f,.18f),dough);
+                    Shape("Carrier crease",layer,new Vector3(0,.016f,.075f),new Vector3(.19f,.005f,.03f),wood);
+                    Shape("Red sleeve",layer,new Vector3(0,.018f,0),new Vector3(.07f,.005f,.18f),rust);
+                    break;
+                case "P10": // 青花纹纸瓦罐
+                    Shape("Porcelain jar",layer,new Vector3(0,.024f,0),new Vector3(.18f,.024f,.18f),white,PrimitiveType.Cylinder);
+                    Shape("Blue band",layer,new Vector3(0,.035f,0),new Vector3(.185f,.006f,.185f),ink,PrimitiveType.Cylinder);
+                    break;
+                case "P11": // 竹编食盒
+                    Shape("Bamboo tray",layer,new Vector3(0,.008f,0),new Vector3(.28f,.016f,.20f),wood);
+                    Shape("Bamboo lid",layer,new Vector3(0,.019f,0),new Vector3(.30f,.006f,.22f),dough);
+                    break;
+                case "P12": // 竹筒杯
+                    Shape("Bamboo cup",layer,new Vector3(0,.044f,0),new Vector3(.14f,.044f,.14f),wood,PrimitiveType.Cylinder);
+                    Shape("Bamboo rim",layer,new Vector3(0,.089f,0),new Vector3(.15f,.006f,.15f),dough,PrimitiveType.Cylinder);
+                    break;
+                default:
+                    Shape("Stacked pack",layer,new Vector3(0,.012f,0),new Vector3(.30f,.025f,.25f),white);
+                    break;
+            }
+            return layer;
         }
         private void SolidBox(string name,Vector3 center,Vector3 size)
         {
@@ -334,6 +417,11 @@ namespace Guochao
         {
             Material body=flavor=="S01"?Paint("Chili oil red glass",ChiliRed,.55f):flavor=="S02"?Paint("Garlic cream ceramic",GarlicCream,.2f):Paint("Sweet chili orange bottle",SweetOrange,.35f);
             Transform bottle=Group("Flavor bottle "+flavor,parent);bottle.position=at;
+            Transform generatedFlavor=Group("Generated flavor visual",bottle);
+            bool generated=(flavor=="S01"||flavor=="S02")&&GeneratedEquipmentAssets.TryPopulate(flavor,generatedFlavor);
+            if(generated)generatedFlavor.localScale=Vector3.one*(.18f/.115f);
+            if(!generated)
+            {
             if(flavor=="S01")
             {
                 Shape("Chili oil glass body",bottle,new Vector3(0,.065f,0),new Vector3(.075f,.13f,.075f),body,PrimitiveType.Cylinder);
@@ -363,9 +451,10 @@ namespace Guochao
                 Shape("Flip top cap",bottle,new Vector3(0,.176f,0),new Vector3(.034f,.014f,.034f),cream,PrimitiveType.Cylinder);
                 Shape("Bottle label",bottle,new Vector3(0,.055f,0),new Vector3(.073f,.05f,.073f),cream,PrimitiveType.Cylinder);
             }
+            }
             if(withGauge)
             {
-                float radius=flavor=="S02"?.085f:flavor=="S01"?.075f:.07f;
+                float radius=generated?.095f:flavor=="S02"?.085f:flavor=="S01"?.075f:.07f;
                 float bottom=.02f,top=flavor=="S02"?.085f:.105f;
                 Material fillMat=flavor=="S01"?Paint("Chili oil fill",new Color(.60f,.05f,.03f),.6f):flavor=="S02"?Paint("Garlic fill",new Color(.93f,.90f,.78f),.3f):Paint("Sweet chili fill",new Color(.88f,.38f,.07f),.4f);
                 Shape("Sight glass back",bottle,new Vector3(radius+.005f,(bottom+top)*.5f,0),new Vector3(.014f,top-bottom,.010f),cream);
@@ -374,6 +463,7 @@ namespace Guochao
                 Shape("Fill strip",fill,Vector3.zero,Vector3.one,fillMat,PrimitiveType.Cube);
                 flavorFills[flavor]=new FillGauge{node=fill,bottom=bottom,fullHeight=top-bottom};
             }
+            SetLayers(bottle);
             return bottle;
         }
         private Transform IngredientTray(string id,Vector3 at)
@@ -407,6 +497,7 @@ namespace Guochao
         {
             if(activeSession!=null)activeSession.SaleCompleted-=OnSaleCompleted; // symmetric rebind; a stage serves one session
             activeSession=session;session.SaleCompleted+=OnSaleCompleted;
+            RefreshDistrictEnvironment(session.DistrictIndex);
             for(int i=0;i<session.Lanes.Length;i++)
             {
                 var lane=session.Lanes[i];float x=session.Lanes.Length==1?.91f:.64f+i*.57f;
@@ -414,9 +505,8 @@ namespace Guochao
                 // PANTRY9：锅深按母菜系口径——现炒系（含简谱素炒饭/滑蛋/鲜肉小炒）
                 // 与蛋炒饭同深，煎烙素饼与手抓饼同浅；汤/饮深锅不变。
                 bool deep=lane.recipeIndex==3||lane.recipeIndex==5;float depth=deep?.23f:BusinessSession.ParentRecipeIndex(lane.recipeIndex)==0?.14f:.045f;
-                Bowl(dish,.25f,depth,ink);Vector3 handleAt=new Vector3(0,1.20f-dish.position.y,-.69f);
-                Between("Wood pan grip",dish,handleAt+new Vector3(0,.025f,.05f),handleAt+new Vector3(0,-.025f,-.05f),.055f,wood);
-                Between("Angled steel pan handle",dish,new Vector3(0,.045f,-.20f),handleAt+new Vector3(0,.025f,.05f),.038f,steel);
+                bool useGeneratedWok=BusinessSession.ParentRecipeIndex(lane.recipeIndex)==0 && session.Equipment.Contains("V02");
+                BuildCookwareVisual(dish,depth,useGeneratedWok,.25f);
                 Transform f=Group("Actual food in cookware",dish);foodGroups.Add(f);BuildFood(f,lane.recipeIndex,depth);f.gameObject.SetActive(false);
                 Transform flameGroup=Group("Lit gas ring",dish);flames.Add(flameGroup);
                 if(!BusinessSession.Recipes[lane.recipeIndex].cold) // 冷制饮品（酸梅汤/柠檬茶/冰粉）不点火烧杯
@@ -534,6 +624,20 @@ namespace Guochao
             for(int i=0;i<5;i++){float a=(float)rand.NextDouble()*Mathf.PI*2,r=.055f+(float)rand.NextDouble()*.085f;Shape("Clear egg white blob",parent,new Vector3(Mathf.Sin(a)*r,.020f,Mathf.Cos(a)*r),new Vector3(.055f,.012f,.048f),white,PrimitiveType.Sphere);}
             for(int i=0;i<6;i++){float a=i*2.4f+.4f;Shape("Stirred egg curd bit",parent,new Vector3(Mathf.Sin(a)*.105f,.024f,Mathf.Cos(a)*.105f),new Vector3(.03f,.011f,.026f),egg,PrimitiveType.Sphere);}
         }
+        // Replace the visual only; actual cookware targets, food and work positions remain stable.
+        private void BuildCookwareVisual(Transform dish,float depth,bool useGeneratedWok,float fallbackRadius)
+        {
+            foreach(Transform old in dish)
+                if(old.name=="Cookware visual"){old.gameObject.SetActive(false);Destroy(old.gameObject);}
+            Transform visual=Group("Cookware visual",dish);
+            Transform wokView=Group("Generated wok placement",visual);
+            if(useGeneratedWok&&GeneratedEquipmentAssets.TryPopulate("V02",wokView))
+            {wokView.localRotation=Quaternion.Euler(0,-90,0);wokView.localPosition=new Vector3(0,0,-.10f);SetLayers(visual);return;}
+            Bowl(visual,fallbackRadius,depth,ink);
+            Vector3 handleAt=new Vector3(0,1.20f-dish.position.y,-.69f);
+            Between("Wood pan grip",visual,handleAt+new Vector3(0,.025f,.05f),handleAt+new Vector3(0,-.025f,-.05f),.055f,wood);
+            Between("Angled steel pan handle",visual,new Vector3(0,.045f,-.20f),handleAt+new Vector3(0,.025f,.05f),.038f,steel);
+        }
         private void Bowl(Transform parent,float radius,float depth,Material mat)
         {
             const int segments=40;var verts=new List<Vector3>();var tris=new List<int>();
@@ -631,7 +735,7 @@ namespace Guochao
             foreach(StallInteractionTarget target in GetComponentsInChildren<StallInteractionTarget>())
             {operatingLeft=Mathf.Min(operatingLeft,target.WorldAnchor.x-.30f);operatingRight=Mathf.Max(operatingRight,target.WorldAnchor.x+.30f);}
             FrameOperatingCounter();View.allowMSAA=true;
-            Light key=Group("Soft morning sun",transform).gameObject.AddComponent<Light>();key.type=LightType.Directional;key.transform.rotation=Quaternion.Euler(48,-32,0);key.color=new Color(1,.93f,.83f);key.intensity=1.1f;key.shadows=LightShadows.Soft;key.shadowStrength=.55f;key.shadowBias=.04f;key.shadowNormalBias=.25f;key.cullingMask=1<<Layer;
+            Light key=Group("Soft morning sun",transform).gameObject.AddComponent<Light>();districtKeyLight=key;key.type=LightType.Directional;key.transform.rotation=Quaternion.Euler(48,-32,0);key.color=new Color(1,.93f,.83f);key.intensity=1.1f;key.shadows=LightShadows.Soft;key.shadowStrength=.55f;key.shadowBias=.04f;key.shadowNormalBias=.25f;key.cullingMask=1<<Layer;
         }
         private void FrameOperatingCounter()
         {
@@ -641,8 +745,8 @@ namespace Guochao
             framedAspect=aspect;
             // Fixed 2.5D workbench view. Reframe only on viewport changes;
             // neither the cursor, an order nor a cooking action moves the camera.
-            Vector3 look=new Vector3((operatingLeft+operatingRight)*.5f,.80f,.55f);
-            View.transform.position=look+new Vector3(-.70f,8.70f,-8.20f);
+            Vector3 look=new Vector3((operatingLeft+operatingRight)*.5f,.80f,.90f);
+            View.transform.position=look+new Vector3(-.70f,7.80f,-8.60f);
             View.transform.LookAt(look);
             View.orthographicSize=Mathf.Max(2.20f,(operatingRight-operatingLeft+.55f)/(2f*Mathf.Max(.6f,aspect)*.91f));
         }

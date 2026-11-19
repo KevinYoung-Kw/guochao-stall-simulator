@@ -63,8 +63,6 @@ namespace Guochao
             carryHull=gameObject.AddComponent<CarryCollisionHull>();carryHull.Initialize(this);
             legacy = visual.GetComponentInChildren<Animation>();
             var clips = new System.Collections.Generic.List<AnimationClip>(Resources.LoadAll<AnimationClip>("Models/Player"));
-            foreach (string action in new[] { "Idle_Loop", "Walk_Loop", "Walk_Carry_Loop", "Push_Loop" })
-                clips.AddRange(Resources.LoadAll<AnimationClip>("Models/Player@" + action));
             if (legacy == null) legacy = visual.GetComponentInChildren<Animator>()?.gameObject.AddComponent<Animation>();
             if (legacy == null) legacy = (visual.childCount > 0 ? visual.GetChild(0).gameObject : visual.gameObject).AddComponent<Animation>();
             Animator animator = visual.GetComponentInChildren<Animator>();

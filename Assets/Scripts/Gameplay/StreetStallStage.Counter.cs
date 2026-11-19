@@ -192,8 +192,10 @@ namespace Guochao
             Transform oldFood=foodGroups[laneIndex];foodGroups[laneIndex]=fresh;
             if(oldFood!=null){oldFood.gameObject.SetActive(false);Destroy(oldFood.gameObject);}
             // 锅具外观：按真实 method/vessel 换锅深与工具（只视觉，不动碰撞/站位）。
-            Transform vessel=Find(dish,"Concave iron vessel");
-            if(vessel!=null){vessel.gameObject.SetActive(false);Destroy(vessel.gameObject);Bowl(dish,lane.freeBatch!=null&&(FreeLaneMethod(lane)=="cold_mix"||FreeLaneMethod(lane)=="muddle")?.19f:.25f,depth,ink);}
+            bool useGeneratedWok=lane.freeBatch!=null ? lane.freeBatch.vesselId=="V02" :
+                activeSession.Equipment.Contains("V02")&&BusinessSession.ParentRecipeIndex(lane.recipeIndex)==0;
+            float radius=lane.freeBatch!=null&&(FreeLaneMethod(lane)=="cold_mix"||FreeLaneMethod(lane)=="muddle")?.19f:.25f;
+            BuildCookwareVisual(dish,depth,useGeneratedWok,radius);
             dish.name=activeSession.LaneDishName(laneIndex)+" cookware";
         }
         // Food follows committed inputs immediately, even during recovery. Only tools

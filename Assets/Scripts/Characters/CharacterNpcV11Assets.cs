@@ -9,14 +9,14 @@ namespace Guochao
     {
         public static readonly ReadOnlyCollection<CharacterArchetypeAsset> All=Array.AsReadOnly(new[]{
             new CharacterArchetypeAsset("customer_courier_v11","黄色骑手","Models/CustomerCourier","Models/Textures/CustomerCourier_Albedo",
-                "CustomerOrigin","CustomerForward","art-v11/npcs/courier/provenance.json","art-v11/npcs/courier/model-inspection.json",8268233,8268870,8269149,
-                1.580000f,new Vector3(1.089259f,1.580000f,0.490596f),CharacterRole.Customer,
+                "CustomerOrigin","CustomerForward","Assets/Resources/Models/GeneratedProvenance/recharge-batch.json","Assets/Resources/Models/GeneratedProvenance/recharge-batch.json",8400665,8404205,8405810,
+                1.580000f,new Vector3(1.089352f,1.580000f,0.490730f),CharacterRole.Customer,
                 "Independent Aholo G1 character; clothing/accessories baked into original design. Actual idle/walk, other actions still missing; Unity scene acceptance tracked separately.",
                 new CharacterClipAsset(CharacterMotion.Idle,"Models/CustomerCourier","Idle_Loop",2.500000f),
                 new CharacterClipAsset(CharacterMotion.Walk,"Models/CustomerCourier","Walk_Loop",1.333333f)),
             new CharacterArchetypeAsset("customer_worker_v11","壮实体型工人","Models/CustomerWorker","Models/Textures/CustomerWorker_Albedo",
-                "CustomerOrigin","CustomerForward","art-v11/npcs/worker-tpose/provenance.json","art-v11/npcs/worker-tpose/model-inspection.json",8269270,8269700,8269995,
-                1.720000f,new Vector3(1.958009f,1.720000f,0.472187f),CharacterRole.Customer,
+                "CustomerOrigin","CustomerForward","Assets/Resources/Models/GeneratedProvenance/recharge-batch.json","Assets/Resources/Models/GeneratedProvenance/recharge-batch.json",8400679,8404215,8405436,
+                1.720000f,new Vector3(1.958164f,1.720000f,0.472142f),CharacterRole.Customer,
                 "Independent Aholo G1 character; clothing/accessories baked into original design. Actual idle/walk, other actions still missing; Unity scene acceptance tracked separately.",
                 new CharacterClipAsset(CharacterMotion.Idle,"Models/CustomerWorker","Idle_Loop",2.500000f),
                 new CharacterClipAsset(CharacterMotion.Walk,"Models/CustomerWorker","Walk_Loop",1.333333f)),

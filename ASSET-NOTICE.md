@@ -25,6 +25,8 @@
 | `MarketRecoveryVendorV17.fbx` | 回收站摊贩 | 8383354 |
 | `MarketStallEarlV17.fbx` | 摊贩伯爵 | 8383350 |
 
+本版新增与替换模型的生成任务、绑定任务和运行模型哈希见 `Assets/Resources/Models/GeneratedProvenance/recharge-batch.json`；同名角色以该清单中的新任务为准，下表保留早期版本来源记录。游戏中的包材轮廓为项目程序建模。
+
 这些模型及其贴图保留自身的权利和适用服务条款，本文件记录来源，不将它们改授代码许可证。多个导出版本、角色动作和贴图副本不重复计为新的生成资产。
 
 ## 项目自制场景与家居

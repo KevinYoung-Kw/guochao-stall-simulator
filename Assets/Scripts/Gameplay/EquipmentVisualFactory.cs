@@ -33,6 +33,7 @@ namespace Guochao
         public static GameObject Create(string id,Transform parent)
         {
             var root=new GameObject("Equipment_"+id);root.transform.SetParent(parent,false);
+            if(GeneratedEquipmentAssets.TryPopulate(id,root.transform))return root;
             if(id=="B04")
             {
                 var source=Resources.Load<GameObject>("Models/Stove");
@@ -121,7 +122,7 @@ namespace Guochao
             }
             else if(id.StartsWith("P"))
             {
-                for(int i=0;i<5;i++)Box(root,"PackingStack",new Vector3(0,.04f+i*.025f,0),new Vector3(.28f,.022f,.23f),Cream);
+                Packing(id,root);
             }
             else
             {
@@ -129,6 +130,88 @@ namespace Guochao
                 Sphere(root,"ToolHead",new Vector3(0,.39f,0),new Vector3(.11f,.08f,.035f),Metal);
             }
             GameArtRendering.Apply(root,true);return root;
+        }
+        // 包材图标：每种 P 包材有独立轮廓，160px 下图与图之间一眼可辨。
+        // 全部用 Unity primitive 简单建模，不称 AI 生成。
+        static void Packing(string id,GameObject root)
+        {
+            Color kraft=new Color(.55f,.40f,.24f),foam=new Color(.96f,.96f,.90f),paleLid=new Color(.78f,.72f,.56f),tub=new Color(.90f,.90f,.84f);
+            if(id=="P04") // 扁身牛皮防油纸袋，区别于厚方形餐盒
+            {
+                Box(root,"KraftPaperBag",new Vector3(0,.14f,0),new Vector3(.22f,.27f,.055f),kraft);
+                Box(root,"FoldedMouth",new Vector3(0,.275f,0),new Vector3(.225f,.025f,.06f),new Color(.47f,.33f,.19f));
+                Box(root,"PaperFold",new Vector3(0,.06f,-.029f),new Vector3(.19f,.012f,.006f),new Color(.70f,.54f,.35f));
+                Disc(root,"RedStamp",new Vector3(0,.16f,-.031f),.035f,.006f,Red,true);
+            }
+            else if(id=="P05") // 方形 PP 卡扣密封餐盒：扁矩形盒身+盖+两侧红卡扣
+            {
+                Box(root,"BoxBase",new Vector3(0,.05f,0),new Vector3(.26f,.10f,.20f),Dark);
+                Box(root,"ClearLid",new Vector3(0,.108f,0),new Vector3(.28f,.018f,.22f),Cream);
+                Box(root,"SealClipL",new Vector3(-.145f,.09f,0),new Vector3(.02f,.05f,.07f),Red);
+                Box(root,"SealClipR",new Vector3(.145f,.09f,0),new Vector3(.02f,.05f,.07f),Red);
+            }
+            else if(id=="P08") // 封口饮料杯：竖直圆杯+封口膜+吸管，绝不画成饭盒
+            {
+                Disc(root,"CupBody",new Vector3(0,.085f,0),.075f,.17f,new Color(.82f,.91f,.93f));
+                Disc(root,"FilmSeal",new Vector3(0,.176f,0),.085f,.014f,Color.white);
+                Disc(root,"Straw",new Vector3(.028f,.225f,0),.009f,.11f,Red);
+            }
+            else if(id=="P07") // 圆纸汤碗：矮圆碗+翻边+碗盖
+            {
+                Disc(root,"BowlBody",new Vector3(0,.055f,0),.125f,.11f,Cream);
+                Disc(root,"BowlRim",new Vector3(0,.112f,0),.135f,.018f,paleLid);
+                Disc(root,"BowlLid",new Vector3(0,.128f,0),.125f,.016f,Cream);
+                Disc(root,"LidKnob",new Vector3(0,.142f,0),.02f,.012f,paleLid);
+            }
+            else if(id=="P06") // 分格大餐盒：最大 footprint 方盒+盖上分格条
+            {
+                Box(root,"BoxBase",new Vector3(0,.055f,0),new Vector3(.32f,.11f,.26f),Cream);
+                Box(root,"BoxLid",new Vector3(0,.118f,0),new Vector3(.34f,.018f,.28f),paleLid);
+                Box(root,"DividerLong",new Vector3(0,.128f,0),new Vector3(.012f,.012f,.24f),paleLid);
+                Box(root,"DividerCross",new Vector3(0,.128f,0),new Vector3(.30f,.012f,.012f),paleLid);
+            }
+            else if(id=="P02") // 发泡盒：白色泡沫箱+外凸盖沿
+            {
+                Box(root,"FoamBase",new Vector3(0,.055f,0),new Vector3(.28f,.11f,.23f),foam);
+                Box(root,"FoamLidRim",new Vector3(0,.105f,0),new Vector3(.31f,.02f,.26f),foam);
+                Box(root,"FoamLid",new Vector3(0,.125f,0),new Vector3(.30f,.035f,.25f),Color.white);
+            }
+            else if(id=="P03") // 防油纸托和竹签
+            {
+                Box(root,"PaperTray",new Vector3(0,.035f,0),new Vector3(.25f,.04f,.18f),new Color(.80f,.70f,.52f));
+                for(int i=0;i<3;i++)Box(root,"BambooSkewer",new Vector3(-.07f+i*.07f,.075f,0),new Vector3(.012f,.012f,.23f),new Color(.69f,.49f,.24f));
+            }
+            else if(id=="P09") // 高身提手纸袋
+            {
+                Box(root,"CarrierBag",new Vector3(0,.11f,0),new Vector3(.19f,.22f,.14f),new Color(.88f,.83f,.66f));
+                Box(root,"CarrierRim",new Vector3(0,.225f,0),new Vector3(.20f,.025f,.15f),Cream);
+                Box(root,"CarrierHandle",new Vector3(0,.27f,0),new Vector3(.11f,.012f,.012f),Dark);
+                Box(root,"RedSleeve",new Vector3(0,.11f,-.074f),new Vector3(.20f,.09f,.012f),Red);
+            }
+            else if(id=="P10") // 青花纹纸瓦罐
+            {
+                Disc(root,"PorcelainJar",new Vector3(0,.09f,0),.10f,.18f,foam);
+                Disc(root,"BlueBand",new Vector3(0,.09f,0),.102f,.035f,new Color(.20f,.34f,.55f));
+                Disc(root,"JarLid",new Vector3(0,.19f,0),.105f,.025f,foam);
+            }
+            else if(id=="P11") // 竹编食盒
+            {
+                Color bamboo=new Color(.72f,.56f,.34f);
+                Box(root,"BambooBox",new Vector3(0,.055f,0),new Vector3(.28f,.11f,.21f),bamboo);
+                Box(root,"BambooLid",new Vector3(0,.12f,0),new Vector3(.30f,.02f,.23f),new Color(.87f,.74f,.51f));
+                for(int i=-1;i<=1;i++)Box(root,"WeaveBand",new Vector3(i*.07f,.132f,0),new Vector3(.012f,.008f,.21f),bamboo);
+            }
+            else if(id=="P12") // 竹筒杯
+            {
+                Color bamboo=new Color(.72f,.56f,.34f);
+                Disc(root,"BambooCup",new Vector3(0,.10f,0),.075f,.20f,bamboo);
+                Disc(root,"BambooRim",new Vector3(0,.205f,0),.082f,.014f,new Color(.46f,.34f,.20f));
+                Disc(root,"BambooSeal",new Vector3(0,.214f,0),.071f,.008f,Cream);
+            }
+            else // 未知 P 包材保底：扁盒堆叠
+            {
+                for(int i=0;i<5;i++)Box(root,"PackingStack",new Vector3(0,.04f+i*.025f,0),new Vector3(.28f,.022f,.23f),Cream);
+            }
         }
         static GameObject Shape(GameObject root,string name,PrimitiveType type,Vector3 p,Vector3 scale,Color colour)
         {

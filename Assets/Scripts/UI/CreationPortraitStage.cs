@@ -224,8 +224,6 @@ namespace Guochao
             ApplyMenuToon(model);
 
             var clips = new List<AnimationClip>(Resources.LoadAll<AnimationClip>("Models/Player"));
-            clips.AddRange(Resources.LoadAll<AnimationClip>("Models/Player@Idle_Loop"));
-            clips.AddRange(Resources.LoadAll<AnimationClip>("Models/Player@Walk_Loop"));
             Animation legacy = model.GetComponentInChildren<Animation>();
             if (legacy == null) legacy = model.GetComponentInChildren<Animator>()?.gameObject.AddComponent<Animation>();
             if (legacy == null) legacy = (model.transform.childCount > 0 ? model.transform.GetChild(0).gameObject : model).AddComponent<Animation>();

@@ -1,0 +1,254 @@
+[
+  {
+    "key": "courier",
+    "engine_resource": "Models/CustomerCourier",
+    "generation": "8400665",
+    "rig": "8404205",
+    "animation": "8405810",
+    "runtime_triangles": 30000,
+    "bone_count": 52,
+    "fbx_sha256": "7e1bfbd1c91c945cd39f58401a249f31e16c4744d58dfc9774c41b0370610b13",
+    "source_fbx_sha256": "e2bc555555024fad2b42168804252582b14bd862d5d4e13ba35874a9305f80ef"
+  },
+  {
+    "key": "worker_tpose",
+    "engine_resource": "Models/CustomerWorker",
+    "generation": "8400679",
+    "rig": "8404215",
+    "animation": "8405436",
+    "runtime_triangles": 30000,
+    "bone_count": 52,
+    "fbx_sha256": "9911224b42cc74ccc6183abbda256881349ef924fbccd8dad31aca1081896161",
+    "source_fbx_sha256": "122f0b60d82f8d68cce6659cd18c9e1b5d32366371d5d7c5f07bb892df4b1334"
+  },
+  {
+    "key": "cashier",
+    "engine_resource": "Models/MarketCashierV15",
+    "generation": "8400695",
+    "rig": "8404235",
+    "animation": "8405453",
+    "runtime_triangles": 30000,
+    "bone_count": 52,
+    "fbx_sha256": "48edc1c85ca1a0469478351dd2ef28202719a93a4a32d3dcdac22a9993232246",
+    "source_fbx_sha256": "4dbc1601970752e58f846055d16c19317ebb30e308ccde6fc31592d5acc35e9c"
+  },
+  {
+    "key": "vendor",
+    "engine_resource": "Models/MarketRecoveryVendorV17",
+    "generation": "8400704",
+    "rig": "8404239",
+    "animation": "8405457",
+    "runtime_triangles": 30000,
+    "bone_count": 52,
+    "fbx_sha256": "28f34cb43192288b356be8a653bfd3d851a28d5a2c3a1cf52a486600fd489221",
+    "source_fbx_sha256": "704b61242635b73e5ad749b26a2e1c0c2f862232be4dfece00b05bc99ab5f2ad"
+  },
+  {
+    "key": "earl",
+    "engine_resource": "Models/MarketStallEarlV17",
+    "generation": "8400711",
+    "rig": "8404244",
+    "animation": "8405698",
+    "runtime_triangles": 29998,
+    "bone_count": 52,
+    "fbx_sha256": "12a5ad9e7236ab1907c700c1e3a2c36a7a1ebd6ba1489462f6eb5eea20328c73",
+    "source_fbx_sha256": "76235a37cc9c490130adbc35609393b6bafadbf9b5d1b8e33792052aefb2b568"
+  },
+  {
+    "key": "retiree",
+    "engine_resource": "Models/CustomerRetireeV20",
+    "generation": "8400690",
+    "rig": "8404230",
+    "animation": "8405448",
+    "runtime_triangles": 30000,
+    "bone_count": 52,
+    "fbx_sha256": "bbad4adbf4f0f3da3a0fead797b7b1e3e59fc584ef0de594db239662d800d0c7",
+    "source_fbx_sha256": "b9e6a17e25d8d69083da1b89a1d9b59c23c507d0b773e9addb8b805ecd4cc154"
+  },
+  {
+    "key": "student",
+    "engine_resource": "Models/CustomerStudentV15",
+    "generation": "8400686",
+    "rig": "8404221",
+    "animation": "8405444",
+    "runtime_triangles": 30000,
+    "bone_count": 52,
+    "fbx_sha256": "8109235ed9addaa9bb8616412ff61cae73a5bcf3b719ac2dd00e76018ac6f211",
+    "source_fbx_sha256": "197d6ca75c845839407d78ef647c1bd68e9c342fd9af1509adac7dbcd415112d"
+  },
+  {
+    "key": "player",
+    "engine_resource": "Models/Player",
+    "generation": "8400648",
+    "rig": "8404194",
+    "animation": "8405806",
+    "runtime_triangles": 30000,
+    "bone_count": 52,
+    "fbx_sha256": "a284b45f26aedddf8ae86b905ca879c351b31b1bc1dc125b043f463a4bbfa776",
+    "source_fbx_sha256": "58e1e7130dcb9a74cea491e2112f90a54f3fdc39d9d4d4078324b34313661a39"
+  },
+  {
+    "key": "jade_t",
+    "engine_resource": "Models/CustomerJade",
+    "generation": "8409439",
+    "rig": "8410282",
+    "animation": "8410629",
+    "runtime_triangles": 30000,
+    "bone_count": 52,
+    "fbx_sha256": "02b11083b3e6eb1e01612f51f510beea14f2925cd414198265300313e96b23fa",
+    "source_fbx_sha256": "3997c99d76844b957edfee82d43f50edca0a285e5a684e0e314fa49b9c075652"
+  },
+  {
+    "key": "chili_s01",
+    "engine_resource": "Models/SauceChiliAI",
+    "generation": "8401143",
+    "retopology": "8406020",
+    "runtime_triangles": 19655,
+    "fbx_sha256": "2c446af2ff0cb5a85385e67292617676be0aa5e9eb858c4a6080aa321d66f23e",
+    "source_fbx_sha256": "c75a891c8b89c9543feca3ff98161a122587227c05fec7f612300e4317771320"
+  },
+  {
+    "key": "garlic_s02",
+    "engine_resource": "Models/SauceGarlicAI",
+    "generation": "8403987",
+    "retopology": "8407852",
+    "runtime_triangles": 20504,
+    "fbx_sha256": "21c76f9f968fe309795a86cbbedfb8e9346c63a9a3905dcca7b19e7101b285c1",
+    "source_fbx_sha256": "b524e2a146e4b1d3e4d0592c1884e8c8790bb61909b7a278e7c42981a9049082"
+  },
+  {
+    "key": "stove_b01",
+    "engine_resource": "Models/StoveB01AI",
+    "generation": "8405451",
+    "retopology": "8407877",
+    "runtime_triangles": 20180,
+    "fbx_sha256": "8b4650bead5786885e836c373da0f3729daea596c6e97806e7db68204e68233f",
+    "source_fbx_sha256": "b76f1586e80c5df9330584ef135815e4bfb0e365489a2c35896dcbd2add8442b"
+  },
+  {
+    "key": "induction_b05",
+    "engine_resource": "Models/InductionB05AI",
+    "generation": "8405469",
+    "retopology": "8409624",
+    "runtime_triangles": 20454,
+    "fbx_sha256": "5671d5ef5b79a7396668f05d5221be6a496ee14e10a6b6a579aa0f32a494b5cc",
+    "source_fbx_sha256": "eaaa6c48941623f73a6944362219c6b35152d9ed3baed1e15afd79cf5ead82bf"
+  },
+  {
+    "key": "sauce_s05",
+    "engine_resource": "Models/SauceSweetAI",
+    "generation": "8405589",
+    "retopology": "8409647",
+    "runtime_triangles": 20473,
+    "fbx_sha256": "00c67da3a06f090f827b1c062e67de1b58f37e23f9db9f201516dc689ccf0266",
+    "source_fbx_sha256": "a4202333c43fdcab416bc3c203084c9a4b311d1e733b86aca3c873634310563d"
+  },
+  {
+    "key": "spatula_u02",
+    "engine_resource": "Models/SpatulaU02AI",
+    "generation": "8403961",
+    "retopology": "8407841",
+    "runtime_triangles": 18808,
+    "fbx_sha256": "9b53ba78221393b465c946aa08da42ec2d05916933b63ba34e18c38145e2e951",
+    "source_fbx_sha256": "64c79547ab8612bc51a6908bfb658a4e0e18640a07cadd5c971340ecfa8ad0b5"
+  },
+  {
+    "key": "rice_bucket",
+    "engine_resource": "Models/RiceBucketAI",
+    "generation": "8404022",
+    "retopology": "8407864",
+    "runtime_triangles": 21598,
+    "fbx_sha256": "3266db105fb1ef9cde9169bc87130909e7701cec3fd7a415ac9d451860965253",
+    "source_fbx_sha256": "9890b8de2f68569a52d945c102dbdc035de07b3dd87204bd4eb8b8c222642ff3"
+  },
+  {
+    "key": "wok_v02",
+    "engine_resource": "Models/WokV02AI",
+    "generation": "8401087",
+    "retopology": "8407811",
+    "runtime_triangles": 17468,
+    "fbx_sha256": "87046fbc0ae808cc67f3830ea1d3ca4916a9bc76ea06700352be5bd804a1e6c7",
+    "source_fbx_sha256": "0abaf3a3c91adba3e4bf53102ddcf5739983c7938f394d7154947fddc445f283"
+  },
+  {
+    "key": "fryer_v13",
+    "engine_resource": "Models/FryerV13AI",
+    "generation": "8405525",
+    "retopology": "8409640",
+    "runtime_triangles": 23166,
+    "fbx_sha256": "fd76ae128115666dab2140dfcf750bf4957d886e673981d92241c7ac76ac7199",
+    "source_fbx_sha256": "679c4f9ad7cbd9ce3f5113d77cde9eaf61e05d568eac7a7dac9cf2149a4669db"
+  },
+  {
+    "key": "soup_v09",
+    "engine_resource": "Models/SoupV09AI",
+    "generation": "8405502",
+    "retopology": "8409635",
+    "runtime_triangles": 19682,
+    "fbx_sha256": "b1c5d21bf73750129175025654180f9add2db3051a508f961d253072cf36ee6e",
+    "source_fbx_sha256": "fac7f9fdb5faf398fc3edb1e0de7e2d8b3def85ed5e14d8cbd0b4cc7a7f09fb3"
+  },
+  {
+    "key": "icebox_v15",
+    "engine_resource": "Models/IceboxV15AI",
+    "generation": "8405542",
+    "retopology": "8409643",
+    "runtime_triangles": 24539,
+    "fbx_sha256": "31bf2309be89e087fbd01c2e74680b3bfed68cf83301a7a4faaed28abdc84014",
+    "source_fbx_sha256": "68029c76140d05260c41eb4727ae04602b3efd957339bf9a7b28ed828aa7db8d"
+  },
+  {
+    "key": "scene_construction",
+    "engine_resource": "Models/DistrictConstructionAI",
+    "generation": "8429981",
+    "retopology": "8431920",
+    "game_candidate": "local decimate 100k; provider retopology pending",
+    "fbx_sha256": "54e36a9348d78ec678a6c48a9e2c10a3bbf2c58eed550d6a61cb3f37cdd33dad",
+    "source_fbx_sha256": "18923aab30c38000066694fca665d7bd07a1d46513ac75af68bdedcef3fa6572"
+  },
+  {
+    "key": "scene_school",
+    "engine_resource": "Models/DistrictSchoolAI",
+    "generation": "8429986",
+    "retopology": "8431924",
+    "game_candidate": "vendor-retopologized",
+    "fbx_sha256": "b8fd0da6fa33f7618a86b41c1ae9e051c6c90e3cb1ae76f06d9561bf1c4a8e78",
+    "source_fbx_sha256": "8fea04f3dd4b55a72749d9be5755b93a0d9eabed87a007d1165e9cf640fb069b"
+  },
+  {
+    "key": "scene_cbd",
+    "engine_resource": "Models/DistrictCbdAI",
+    "generation": "8429997",
+    "retopology": "8432753",
+    "game_candidate": "local decimate 100k; provider retopology pending",
+    "fbx_sha256": "f66f251493a5721318203f25462be6774393cdd5ddba3cde278d6974dd773aed",
+    "source_fbx_sha256": "c726553195f8724bc41142d1a25826fa48316d4e38539b3bc91ce0c4e2c80d4b"
+  },
+  {
+    "key": "scene_nightmarket",
+    "engine_resource": "Models/DistrictNightmarketAI",
+    "generation": "8430003",
+    "retopology": "8432757",
+    "game_candidate": "local decimate 100k; provider retopology pending",
+    "fbx_sha256": "72574c4f0a53c82b0f8b06a9f5ebba809a012e8d3b2875ae14938f550b69a172",
+    "source_fbx_sha256": "bb8f00505922933bebc5f5eb128056c378e2fbe479240cdb3bb29dc34093ffd1"
+  },
+  {
+    "key": "scene_heritage",
+    "engine_resource": "Models/DistrictHeritageAI",
+    "generation": "8430014",
+    "retopology": "8432759",
+    "game_candidate": "local decimate 100k; provider retopology pending",
+    "fbx_sha256": "7e1709adca4779a3ccfeac57682f42813171a1ad903cb1d966bb57f71df54e5f",
+    "source_fbx_sha256": "48228013372cdb38fbdcd7571cc8be56cb139615f7a4fdf176b200e719a634a4"
+  },
+  {
+    "key": "scene_flowerbed",
+    "engine_resource": "Models/DistrictFlowerbedAI",
+    "generation": "8429970",
+    "retopology": "8432751",
+    "game_candidate": "local decimate 100k; provider retopology pending",
+    "fbx_sha256": "83e56f4f684563b70b0e64877e18a740d00d137d35f87ba6209c06fba9b8347a",
+    "source_fbx_sha256": "6cb1e8afc1f875f6c865f5daa1bbdf55093ce190dffcc17c30c037942ea03665"
+  }
+]

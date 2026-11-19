@@ -557,7 +557,6 @@ namespace Guochao
         }
         private AnimationClip FindClip(string key)
         {
-            foreach(AnimationClip clip in Resources.LoadAll<AnimationClip>("Models/Player@"+key))if(clip.legacy&&!clip.name.StartsWith("__preview__",StringComparison.Ordinal)&&clip.name.IndexOf(key,StringComparison.OrdinalIgnoreCase)>=0)return clip;
             foreach(AnimationClip clip in Resources.LoadAll<AnimationClip>("Models/Player"))if(clip.legacy&&clip.name.IndexOf(key,StringComparison.OrdinalIgnoreCase)>=0)return clip;
             return null;
         }
