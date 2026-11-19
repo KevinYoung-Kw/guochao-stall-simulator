@@ -10,15 +10,36 @@ namespace Guochao
     {
         // ── 出餐台成品焦点（协作固定接口）──────────────────────────────
         public string SelectedCounterMealId { get; private set; }="";
+        private int selectionWorkSerial;
+        public bool ServiceUsesCounterMeal=>SelectedCounterMealId!=""&&FindCounterMeal(SelectedCounterMealId)!=null;
+        public bool HasServiceMeal=>ServiceUsesCounterMeal||Session?.HeldMeal!=null;
+        // One priority for mouse, order cards and keyboard: explicit counter
+        // selection, then the held meal. A mismatch never silently swaps food.
+        public bool CanServeFocusedMealTo(int orderId,out string reason)
+        {
+            if(ServiceUsesCounterMeal)return Session.CanServeCounterMeal(SelectedCounterMealId,orderId,out reason);
+            if(Session?.HeldMeal!=null)return Session.CanServeHeldMeal(orderId,out reason);
+            reason="先挑一份成品";return false;
+        }
+        public bool ClickCustomerForService(int orderId)
+        {
+            if(!ServiceAvailable())return false;
+            TickCounterSelection();
+            if(TryRiskIntercept(orderId))return true;
+            if(ServiceUsesCounterMeal)return RequestCounterPickup(SelectedCounterMealId,orderId);
+            if(Session.HeldMeal!=null)return DeliverHeldMealTo(orderId);
+            ShowCustomerGuide(orderId);return true;
+        }
         // 只选真实 ReadyMeals 中的餐；传空串=清除选餐（UI 取消选餐依赖此签名）。
         public bool SelectCounterMeal(string mealId)
         {
             if(!CanInteract)return false;
             if(string.IsNullOrEmpty(mealId)){SelectedCounterMealId="";InteractionChanged?.Invoke();return true;}
-            if(!KitchenHandsAvailable())return false;
+            // Pointing at a ready meal does not occupy the vendor's hands:
+            // the customer collects it while another packed meal may be held.
             if(PickupOrderForMeal(mealId)>=0)return InteractionRejected("这份餐已经有人来取了");
             if(FindCounterMeal(mealId)==null)return InteractionRejected("出餐台上没有这份餐");
-            SelectedCounterMealId=mealId;InteractionChanged?.Invoke();
+            SelectedCounterMealId=mealId;selectionWorkSerial=workSerial;InteractionChanged?.Invoke();
             ShowInteractionHint("挑好了 · 点想要它的顾客来取餐");return true;
         }
         // UI 点顾客入口：必须已选餐且 CanServeCounterMeal 合适才入队；入队即确定
@@ -147,7 +168,13 @@ namespace Guochao
         private void TickCounterSelection()
         {
             if(SelectedCounterMealId=="")return;
-            if(FindCounterMeal(SelectedCounterMealId)!=null)return;
+            // A new packing intent starts a new hand-serving context. Clear
+            // an older selection, but preserve an explicit selection made
+            // after that intent (including while holding the resulting meal).
+            bool newerPack=activeWork!=null&&activeWork.fulfilment==FulfilmentWork.Pack&&activeWork.id>selectionWorkSerial;
+            foreach(var work in pendingWork)
+                newerPack|=work.fulfilment==FulfilmentWork.Pack&&work.id>selectionWorkSerial;
+            if(!newerPack&&FindCounterMeal(SelectedCounterMealId)!=null)return;
             SelectedCounterMealId="";InteractionChanged?.Invoke();
         }
     }

@@ -235,12 +235,9 @@ namespace Guochao
                     // 出餐台流程：普通订单只是只读信息，不作为生产操作焦点；
                     // 只有风险追款单、或已选台面餐时的适配顾客才进入焦点轮换。
                     if(owner.Session.HasPendingRiskOrder(target.orderId)){targets.Add(target);continue;}
-                    string mealId=owner.SelectedCounterMealId;
-                    if(owner.Session.HeldMeal!=null)
-                    {if(owner.Session.CanServeHeldMeal(target.orderId,out _))targets.Add(target);continue;}
-                    if(mealId==""){targets.Add(target);continue;} // Read-only recipe guide is keyboard accessible.
-                    if(!owner.Session.CanServeCounterMeal(mealId,target.orderId,out _))continue;
-                    targets.Add(target);continue;
+                    if(owner.HasServiceMeal)
+                    {if(owner.CanServeFocusedMealTo(target.orderId,out _))targets.Add(target);continue;}
+                    targets.Add(target);continue; // Read-only guide when no meal is selected or held.
                 }
                 if(target.kind==StallInteractionKind.CounterMeal||target.kind==StallInteractionKind.Serving)
                 {targets.Add(target);continue;}
@@ -270,16 +267,7 @@ namespace Guochao
                 // 顾客=真实递餐（DeliverCounterMealTo）；否则订单只是只读信息，
                 // 不 SelectOrder、不自动交付、不替玩家挑顾客。
                 case StallInteractionKind.Order:
-                    if(owner.TryRiskIntercept(target.orderId))break;
-                    if(owner.Session.HeldMeal!=null){owner.DeliverHeldMealTo(target.orderId);break;}
-                    string mealId=owner.SelectedCounterMealId;
-                    if(mealId!="")
-                    {
-                        if(owner.Session.CanServeCounterMeal(mealId,target.orderId,out string reason))owner.DeliverCounterMealTo(target.orderId);
-                        else owner.ShowInteractionHint(reason==""?"这份餐与订单不符":reason);
-                        break;
-                    }
-                    owner.ShowCustomerGuide(target.orderId);
+                    owner.ClickCustomerForService(target.orderId);
                     break;
                 // 台面成品：点选/再点取消（Controller 约定空串清除选择）。
                 case StallInteractionKind.CounterMeal:

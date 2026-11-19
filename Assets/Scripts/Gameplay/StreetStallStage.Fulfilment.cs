@@ -1,16 +1,17 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Guochao
 {
-    // Claude authored the initial held-meal presentation scaffold; v20 review
-    // completes callback-only commits and measured customer-side fulfilment.
+    // v21 Codex targeted service fix on the reviewed v20 Claude-derived scaffold.
+    // Short service animations do not gate settlement on pathfinding or precise IK.
     public sealed partial class StreetStallStage
     {
         private Transform heldProp,heldGrip;
         private string heldMealId;
         private bool heldMealInHand;
-        private ServiceVisit serviceVisit;
+        private readonly List<ServiceVisit> serviceVisits=new List<ServiceVisit>();
         public bool HasHeldMealInHand=>heldMealInHand&&heldProp!=null;
         public string HeldMealVisualId=>HasHeldMealInHand?heldMealId:"";
         public float LastCustomerPickupContactError {get;private set;}=float.PositiveInfinity;
@@ -18,9 +19,9 @@ namespace Guochao
         public float LastDirectHandoffContactError {get;private set;}=float.PositiveInfinity;
         private sealed class ServiceVisit
         {
-            public Guest guest;public CustomerPickupReach reach;public CounterMealSlot slot;
-            public string mealId;public int orderId;public bool direct,returning,gestureStarted,vendorArrived,vendorFinished,received,closed;
-            public Vector3 destination,vendorStand;public Quaternion facing=Quaternion.LookRotation(Vector3.back,Vector3.up);public Transform customerGrip,vendorGrip,vendorLeftGrip;
+            public Guest guest;public CounterMealSlot slot;public Transform visual,hand,startParent;
+            public string mealId;public int orderId;public bool direct,received,closed,committing,cancelRequested;
+            public Vector3 startPosition;public Quaternion startRotation;public float elapsed;
             public Action contact,finished,failed;
         }
         private void ClearHeldProp()
@@ -35,6 +36,9 @@ namespace Guochao
         }
         private void RestoreHeldMealVisual(BusinessSession session)
         {
+            // A synchronous sale/checkpoint callback may clear HeldMeal before
+            // its travelling visual has been transferred to the receiver.
+            foreach(var visit in serviceVisits)if(visit.direct&&visit.committing)return;
             if(session==null)return;
             if(session.HeldMeal==null){if(heldMealInHand)ClearHeldProp();return;}
             if(HasHeldMealInHand&&heldMealId==session.HeldMeal.id&&heldProp.gameObject.activeInHierarchy&&workActor.CaptureAudit().carryingVisualProp)return;
@@ -91,170 +95,109 @@ namespace Guochao
         }
         private bool SessionHasCounterMeal(string id)
         {if(activeSession==null)return false;foreach(var meal in activeSession.ReadyMeals)if(meal.id==id)return true;return false;}
-        public bool IsCounterMealReserved(string mealId)=>serviceVisit!=null&&!serviceVisit.returning&&!serviceVisit.direct&&serviceVisit.mealId==mealId;
-        private CustomerPickupReach ReachFor(Guest guest)
-        {var reach=guest.root.GetComponent<CustomerPickupReach>();return reach?reach:guest.root.gameObject.AddComponent<CustomerPickupReach>();}
-        private Transform CustomerPackageGrip(Transform package,string packageId)
-        {
-            Transform grip=Group("Customer package edge",package);Vector3 offset=PackageGripOffset(packageId);offset.x=-offset.x;offset.z=-offset.z;grip.localPosition=offset;
-            grip.rotation=Quaternion.LookRotation(Vector3.back,Vector3.up);return grip;
-        }
+        public bool IsCounterMealReserved(string mealId)
+        {foreach(var v in serviceVisits)if(!v.closed&&!v.direct&&v.mealId==mealId)return true;return false;}
+        private bool GuestReserved(int orderId)
+        {foreach(var v in serviceVisits)if(!v.closed&&v.orderId==orderId)return true;return false;}
         public bool BeginCustomerPickup(string mealId,int orderId,Action contact,Action finished,Action failed)
         {
             LastPickupRejection="";
-            if(serviceVisit!=null||activeSession==null||!activeSession.CanServeCounterMeal(mealId,orderId,out _))return false;
-            CounterMealSlot slot=FindCounterSlot(mealId);
+            if(activeSession==null||GuestReserved(orderId)||IsCounterMealReserved(mealId)||!activeSession.CanServeCounterMeal(mealId,orderId,out _))return false;
+            var slot=FindCounterSlot(mealId);
             if(slot==null||!slot.mealVisual||!guests.TryGetValue(orderId,out Guest guest)||!IsOrderServable(orderId))return false;
-            CounterMeal meal=null;foreach(var m in activeSession.ReadyMeals)if(m.id==mealId){meal=m;break;}if(meal==null)return false;
-            CustomerPickupReach reach=ReachFor(guest);if(!reach.BindSide(false))return false;
-            Transform grip=CustomerPackageGrip(slot.mealVisual,meal.packageId);
-            float standZ=ServingCounterBack+guest.agent.Profile.Radius+.035f;
-            bool planned=reach.TryPlanApproach(grip,standZ,p=>guestNavigation.CanOccupy(p,guest.agent.Profile,guest.agent),out Vector3 stand,out Quaternion facing);
-            if(!planned)
-            {LastPickupRejection="No collision-clear, measured-arm-reachable stance; grip="+grip.position.ToString("F3")+" "+reach.ReachDiagnostic;Debug.LogWarning("PICKUP_REJECTED "+LastPickupRejection);Destroy(grip.gameObject);return false;}
-            LastCustomerPickupContactError=float.PositiveInfinity;
-            serviceVisit=new ServiceVisit{guest=guest,reach=reach,slot=slot,mealId=mealId,orderId=orderId,destination=stand,facing=facing,customerGrip=grip,contact=contact,finished=finished,failed=failed};
-            guest.agent.AllowDynamicDetours=true;return true;
+            var visit=new ServiceVisit{guest=guest,slot=slot,mealId=mealId,orderId=orderId,visual=slot.mealVisual,contact=contact,finished=finished,failed=failed};
+            BeginShortService(visit);return true;
         }
         public void PerformHeldMealDelivery(int orderId,Action contact,Action finished,Action failed)
         {
-            if(WorkActorBusy||serviceVisit!=null){failed?.Invoke();RejectVendorWork("取餐口正忙，稍等一下",finished);return;}
-            var session=activeSession;RestoreHeldMealVisual(session);
-            if(session==null||!HasHeldMealInHand||!session.CanServeHeldMeal(orderId,out _)||!guests.TryGetValue(orderId,out Guest guest)||!IsOrderServable(orderId))
+            if(WorkActorBusy||GuestReserved(orderId)){failed?.Invoke();finished?.Invoke();return;}
+            RestoreHeldMealVisual(activeSession);
+            if(activeSession==null||!HasHeldMealInHand||!activeSession.CanServeHeldMeal(orderId,out _)||!guests.TryGetValue(orderId,out Guest guest)||!IsOrderServable(orderId))
             {failed?.Invoke();finished?.Invoke();return;}
-            CustomerPickupReach reach=ReachFor(guest);if(!reach.BindSide(true)){failed?.Invoke();finished?.Invoke();return;}
-            float x=counterSlots[counterSlots.Count-1].tray.position.x+.24f+guest.agent.Profile.Radius+.34f;
-            Vector3 vendorStand=new Vector3(x,0,.12f),customerStand=new Vector3(x,0,.12f+.25f+guest.agent.Profile.Radius+.035f);
-            if(!guestNavigation.CanOccupy(customerStand,guest.agent.Profile,guest.agent)){failed?.Invoke();finished?.Invoke();return;}
-            var visit=new ServiceVisit{guest=guest,reach=reach,direct=true,mealId=session.HeldMeal.id,orderId=orderId,destination=customerStand,vendorStand=vendorStand,contact=contact,finished=finished,failed=failed};
-            serviceVisit=visit;sequenceBusy=true;sequenceFinished=finished;guest.agent.AllowDynamicDetours=true;LastDirectHandoffContactError=float.PositiveInfinity;
-            if(!workActor.MoveTo(vendorStand,vendorStand+Vector3.forward,()=>visit.vendorArrived=true,WorkRoute(player.position,vendorStand)))CancelVisit(visit,true);
+            var visit=new ServiceVisit{guest=guest,direct=true,mealId=activeSession.HeldMeal.id,orderId=orderId,visual=heldProp,contact=contact,finished=finished,failed=failed};
+            sequenceBusy=true;sequenceFinished=null;
+            Vector3 at=heldProp.position;Quaternion rotation=heldProp.rotation;workActor.ReleaseVisualProp(false);heldProp.SetPositionAndRotation(at,rotation);
+            BeginShortService(visit);
+        }
+        private void BeginShortService(ServiceVisit visit)
+        {
+            visit.startPosition=visit.visual.position;visit.startRotation=visit.visual.rotation;visit.startParent=visit.visual.parent;
+            visit.visual.SetParent(cooking,true);DisableMealTarget(visit.visual);
+            visit.hand=NamedBone(visit.guest.root,"RightHand");
+            if(visit.guest.presentation!=null){visit.guest.presentation.ExternalReceive=true;visit.guest.presentation.ExternalReceiveBusy=true;}
+            visit.guest.walking=false;Play(visit.guest,false);serviceVisits.Add(visit);
         }
         public bool CancelCustomerPickup(string mealId)
-        {var visit=serviceVisit;if(visit==null||visit.direct||visit.returning||visit.mealId!=mealId||visit.received)return false;CancelVisit(visit,true);return true;}
+        {foreach(var visit in serviceVisits.ToArray())if(!visit.direct&&visit.mealId==mealId&&!visit.received){CancelVisit(visit,true);return true;}return false;}
         public void CancelAllCustomerPickups()
-        {
-            var visit=serviceVisit;if(visit==null)return;
-            if(!visit.received)CancelVisit(visit,true);
-            else if(visit.direct)CancelVendorService();
-        }
-        // Kitchen re-targeting cancels only the vendor's work. A customer who is
-        // walking to the counter remains independent. A committed direct handoff
-        // keeps its actual package and finishes the receiving arm after checkpoint.
+        {foreach(var visit in serviceVisits.ToArray())if(visit.received)FinishVisit(visit);else CancelVisit(visit,true);}
         private void CancelVendorService()
-        {
-            var visit=serviceVisit;if(visit==null||!visit.direct||visit.returning)return;
-            if(!visit.received){CancelVisit(visit,true);return;}
-            visit.vendorFinished=true;sequenceFinished=null;
-            if(!visit.reach.IsBusy)FinishVisit(visit);
-        }
+        {foreach(var visit in serviceVisits.ToArray())if(visit.direct){if(visit.received)FinishVisit(visit);else CancelVisit(visit,true);}}
+        private bool IsVisiting(Guest guest)
+        {foreach(var visit in serviceVisits)if(!visit.closed&&visit.guest==guest)return true;return false;}
         private void CancelVisit(ServiceVisit visit,bool reportFailure)
         {
             if(visit==null||visit.closed)return;
-            if(reportFailure&&!visit.returning)Debug.LogWarning("SERVICE_VISIT_CANCELLED order="+visit.orderId+" direct="+visit.direct+" received="+visit.received+" "+visit.reach?.ReachDiagnostic);
-            visit.reach?.Cancel();visit.returning=true;visit.gestureStarted=false;
-            if(visit.customerGrip){Destroy(visit.customerGrip.gameObject);visit.customerGrip=null;}
-            if(visit.vendorGrip){Destroy(visit.vendorGrip.gameObject);visit.vendorGrip=null;}
-            if(visit.vendorLeftGrip){Destroy(visit.vendorLeftGrip.gameObject);visit.vendorLeftGrip=null;}
-            if(reportFailure){Action failure=visit.failed;visit.failed=null;failure?.Invoke();}
-            Action done=visit.finished;visit.finished=null;visit.contact=null;
-            if(visit.direct){workActor.Cancel();sequenceFinished=null;CompleteWork();}
-            done?.Invoke();
+            if(visit.committing){visit.cancelRequested=true;return;}
+            if(visit.received){FinishVisit(visit);return;}
+            visit.closed=true;serviceVisits.Remove(visit);
+            if(visit.guest.presentation!=null){visit.guest.presentation.ExternalReceiveBusy=false;visit.guest.presentation.ExternalReceive=false;}
+            if(visit.visual)
+            {
+                visit.visual.SetParent(visit.startParent,true);visit.visual.SetPositionAndRotation(visit.startPosition,visit.startRotation);
+                var target=visit.visual.GetComponent<StallInteractionTarget>();if(target){target.enabled=true;if(target.HitCollider)target.HitCollider.enabled=true;}
+            }
+            if(visit.direct)
+            {
+                sequenceFinished=null;sequenceBusy=false;
+                if(activeSession?.HeldMeal?.id==visit.mealId)BuildHeldProp(activeSession.HeldMeal);
+                CompleteWork();
+            }
+            Action failure=visit.failed,done=visit.finished;visit.contact=visit.failed=visit.finished=null;
+            if(reportFailure)failure?.Invoke();done?.Invoke();
         }
-        private bool IsVisiting(Guest guest)=>serviceVisit!=null&&serviceVisit.guest==guest;
-        private float FinishPickupApproach(Guest guest,Vector3 destination,float dt)
-        {
-            // Ordinary crowd slots accept 7cm proximity. A short-arm contact
-            // needs the actual planned stance: finish those centimetres with
-            // the SAME full-capsule sweep and CharacterController, never a warp.
-            Vector3 start=guest.root.position,goal=destination;goal.y=start.y;
-            if(Vector3.Distance(start,goal)<=.003f)return 0;
-            Vector3 next=Vector3.MoveTowards(start,goal,.65f*dt);
-            if(!guestNavigation.CanReachDirect(guest.agent,next))
-            {guest.agent.BlockedSeconds+=dt;guest.agent.BlockedReason="pickup-final-approach-blocked";return 0;}
-            guest.agent.Controller.Move(next-start);Physics.SyncTransforms();
-            Vector3 delta=guest.root.position-start;delta.y=0;
-            guest.agent.Travelled+=delta.magnitude;guest.agent.Velocity=delta/Mathf.Max(.0001f,dt);
-            if(delta.sqrMagnitude<.0000001f){guest.agent.BlockedSeconds+=dt;guest.agent.BlockedReason="pickup-final-controller-blocked";}
-            else{guest.agent.BlockedSeconds=0;guest.agent.BlockedReason="";}
-            return delta.magnitude;
-        }
+        // v21: a short readable service animation, not an IK contact test.
+        // Characters stay on their collision-safe standing spots; only the food
+        // visual travels. The existing Controller callback alone changes money.
         private void TickServiceVisit(float dt)
         {
-            var visit=serviceVisit;if(visit==null||dt<=0)return;Guest guest=visit.guest;
-            if(!guest.root||!guest.root.gameObject.activeInHierarchy){CancelVisit(visit,true);serviceVisit=null;return;}
-            StallOrder order=activeSession.FindOrder(visit.orderId);
-            if(!visit.received&&!visit.returning&&(order==null||order.departed||order.served||
-                (visit.direct?activeSession.HeldMeal?.id!=visit.mealId:!SessionHasCounterMeal(visit.mealId))))CancelVisit(visit,true);
-            if(visit.returning)
+            if(dt<=0||activeSession==null)return;
+            foreach(var visit in serviceVisits.ToArray())
             {
-                if(order==null||order.departed||order.served){visit.closed=true;guest.agent.AllowDynamicDetours=false;serviceVisit=null;return;}
-                Vector3 back=QueuePoints[guest.slot];float moved=guestNavigation.Step(guest.agent,back,1.32f,dt);guest.walking=moved>.0002f;Play(guest,guest.walking);
-                if(guestNavigation.HasArrived(guest.agent,back)){visit.closed=true;guest.agent.AllowDynamicDetours=false;serviceVisit=null;}return;
-            }
-            if(!visit.gestureStarted)
-            {
-                bool finalPickupStep=!visit.direct&&guestNavigation.HasArrived(guest.agent,visit.destination);
-                float moved=finalPickupStep?FinishPickupApproach(guest,visit.destination,dt):guestNavigation.Step(guest.agent,visit.destination,1.32f,dt);
-                guest.walking=moved>.0002f;Play(guest,guest.walking);
-                if(guest.agent.BlockedSeconds>6){CancelVisit(visit,true);return;}
-                if(!guestNavigation.HasArrived(guest.agent,visit.destination,visit.direct?.07f:.003f))return;
-                guest.root.rotation=Quaternion.RotateTowards(guest.root.rotation,visit.facing,190*dt);
-                if(Quaternion.Angle(guest.root.rotation,visit.facing)>2)return;
-                if(visit.direct)
+                if(visit.closed)continue;
+                if(!visit.guest.root||!visit.guest.root.gameObject.activeInHierarchy){CancelVisit(visit,true);continue;}
+                var order=activeSession.FindOrder(visit.orderId);
+                if(!visit.received&&(order==null||order.departed||order.served||
+                    (visit.direct?activeSession.HeldMeal?.id!=visit.mealId:!SessionHasCounterMeal(visit.mealId)))){CancelVisit(visit,true);continue;}
+                if(!visit.visual){CancelVisit(visit,true);continue;}
+                visit.elapsed+=dt;
+                Vector3 look=player.position-visit.guest.root.position;look.y=0;
+                if(look.sqrMagnitude>.001f)visit.guest.root.rotation=Quaternion.RotateTowards(visit.guest.root.rotation,Quaternion.LookRotation(look),300*dt);
+                Vector3 end=visit.hand?visit.hand.position:visit.guest.root.position+Vector3.up*1.0f;
+                float t=Mathf.SmoothStep(0,1,Mathf.Clamp01(visit.elapsed/.42f));
+                if(!visit.received)
                 {
-                    if(!visit.vendorArrived)return;StartDirectGesture(visit);
+                    visit.visual.position=Vector3.Lerp(visit.startPosition,end,t)+Vector3.up*(Mathf.Sin(t*Mathf.PI)*.24f);
+                    visit.visual.rotation=Quaternion.Slerp(visit.startRotation,visit.guest.root.rotation,t);
+                    if(visit.elapsed>=.42f)
+                    {
+                        bool allowed=visit.direct?activeSession.CanServeHeldMeal(visit.orderId,out _):activeSession.CanServeCounterMeal(visit.mealId,visit.orderId,out _);
+                        if(!allowed){CancelVisit(visit,true);continue;}
+                        Action commit=visit.contact;visit.contact=null;visit.committing=true;
+                        try{commit?.Invoke();}finally{visit.committing=false;}
+                        bool sold=visit.direct?activeSession.HeldMeal?.id!=visit.mealId:!SessionHasCounterMeal(visit.mealId);
+                        if(!sold){CancelVisit(visit,true);continue;}
+                        visit.received=true;
+                        if(visit.direct){heldProp=heldGrip=null;heldMealInHand=false;heldMealId=null;}
+                        else{visit.slot.mealVisual=null;visit.slot.mealId=null;presentedMealIds.Remove(visit.mealId);}
+                        // The callback may synchronously request checkpoint/cancel.
+                        // Economic state is authoritative even in that reentrant path.
+                        if(visit.closed){if(visit.visual)Destroy(visit.visual.gameObject);continue;}
+                        visit.visual.SetParent(visit.hand?visit.hand:visit.guest.root,true);visit.visual.position=end;
+                    }
                 }
-                else StartPickupGesture(visit);
+                if(visit.received&&(visit.elapsed>=.55f||visit.cancelRequested))FinishVisit(visit);
             }
-            visit.reach.Tick(dt);
-            if(visit.received&&!visit.reach.IsBusy&&(!visit.direct||visit.vendorFinished))FinishVisit(visit);
-        }
-        private void StartPickupGesture(ServiceVisit visit)
-        {
-            visit.gestureStarted=true;Play(visit.guest,false);
-            Debug.Log("PICKUP_AT_STANCE order="+visit.orderId+" actual="+visit.guest.root.position.ToString("F4")+" planned="+visit.destination.ToString("F4")+" facingError="+Quaternion.Angle(visit.guest.root.rotation,visit.facing).ToString("F2")+" "+visit.reach.ReachDiagnostic);
-            if(!visit.reach.Begin(visit.customerGrip,false,()=>
-            {
-                if(!activeSession.CanServeCounterMeal(visit.mealId,visit.orderId,out _)){CancelVisit(visit,true);return;}
-                LastCustomerPickupContactError=visit.reach.LastContactError;
-                if(LastCustomerPickupContactError>.025f){CancelVisit(visit,true);return;}
-                Transform visual=visit.slot.mealVisual;visit.contact?.Invoke();
-                if(SessionHasCounterMeal(visit.mealId)){CancelVisit(visit,true);return;}
-                DisableMealTarget(visual);visit.slot.mealVisual=null;visit.slot.mealId=null;presentedMealIds.Remove(visit.mealId);
-                visit.received=true;visit.reach.AcceptPackage(visual,visit.customerGrip);
-            },()=>FinishVisit(visit),()=>CancelVisit(visit,true)))CancelVisit(visit,true);
-        }
-        private void StartDirectGesture(ServiceVisit visit)
-        {
-            Transform shoulder=NamedBone(player,"RightArm"),customerShoulder=NamedBone(visit.guest.root,"LeftArm");
-            if(!shoulder||!customerShoulder){CancelVisit(visit,true);return;}
-            visit.gestureStarted=true;
-            Vector3 point=(shoulder.position+customerShoulder.position)*.5f;point.y=Mathf.Min(shoulder.position.y,customerShoulder.position.y)-.04f;
-            visit.vendorGrip=Group("Direct physical handoff",cooking);visit.vendorGrip.SetPositionAndRotation(point,heldGrip.localRotation);
-            Transform vendorLeftShoulder=NamedBone(player,"LeftArm");
-            if(!vendorLeftShoulder){CancelVisit(visit,true);return;}
-            // Pack's actor contract always solves both hands. Explicitly keep
-            // the free hand bent at the waist; the ground-level facing point
-            // must never become its fallback physical contact target.
-            visit.vendorLeftGrip=Group("Direct free hand rest",cooking);
-            visit.vendorLeftGrip.SetPositionAndRotation(vendorLeftShoulder.position+Vector3.down*.24f+Vector3.forward*.10f,workActor.LeftPalmRotation);
-            Station station=new Station{stand=visit.vendorStand,right=visit.vendorGrip,left=visit.vendorLeftGrip,facingPoint=visit.vendorStand+Vector3.forward};
-            Execute(VendorWorkAction.Pack,station,3.4f,()=>
-            {
-                if(activeSession.HeldMeal?.id!=visit.mealId||!heldProp){CancelVisit(visit,true);return;}
-                visit.customerGrip=CustomerPackageGrip(heldProp,activeSession.HeldMeal.packageId);
-                if(!visit.reach.Begin(visit.customerGrip,true,()=>
-                {
-                    if(!activeSession.CanServeHeldMeal(visit.orderId,out _)){CancelVisit(visit,true);return;}
-                    LastDirectHandoffContactError=Mathf.Max(visit.reach.LastContactError,Vector3.Distance(workActor.RightPalmPosition,heldGrip.position));
-                    if(LastDirectHandoffContactError>.025f){CancelVisit(visit,true);return;}
-                    Transform visual=heldProp;Vector3 at=visual.position;Quaternion rotation=visual.rotation;visit.contact?.Invoke();
-                    if(activeSession.HeldMeal!=null){CancelVisit(visit,true);return;}
-                    workActor.ReleaseVisualProp(false);visual.SetPositionAndRotation(at,rotation);visual.gameObject.SetActive(true);
-                    heldProp=heldGrip=null;heldMealInHand=false;heldMealId=null;visit.received=true;visit.reach.AcceptPackage(visual,visit.customerGrip);
-                },()=>{if(visit.vendorFinished)FinishVisit(visit);},()=>CancelVisit(visit,true)))CancelVisit(visit,true);
-            },()=>{visit.vendorFinished=true;if(visit.received&&!visit.reach.IsBusy)FinishVisit(visit);});
         }
         private static Transform NamedBone(Transform root,string suffix)
         {foreach(var t in root.GetComponentsInChildren<Transform>(true)){string n=t.name;int at=n.LastIndexOf(':');if(at>=0)n=n.Substring(at+1);if(n==suffix||n=="mixamorig"+suffix)return t;}return null;}
@@ -262,9 +205,10 @@ namespace Guochao
         {if(!visual)return;var target=visual.GetComponent<StallInteractionTarget>();if(target){target.enabled=false;if(target.HitCollider)target.HitCollider.enabled=false;}}
         private void FinishVisit(ServiceVisit visit)
         {
-            if(visit==null||visit.closed||!visit.received||visit.reach.IsBusy||visit.direct&&!visit.vendorFinished)return;
-            visit.closed=true;visit.guest.agent.AllowDynamicDetours=false;if(visit.vendorGrip)Destroy(visit.vendorGrip.gameObject);if(visit.vendorLeftGrip)Destroy(visit.vendorLeftGrip.gameObject);
-            if(serviceVisit==visit)serviceVisit=null;Action done=visit.finished;visit.finished=null;
+            if(visit==null||visit.closed||!visit.received)return;
+            visit.closed=true;serviceVisits.Remove(visit);
+            if(visit.guest.presentation!=null)visit.guest.presentation.ExternalReceiveBusy=false;
+            Action done=visit.finished;visit.finished=visit.failed=visit.contact=null;
             if(visit.direct){sequenceFinished=null;CompleteWork();}done?.Invoke();
         }
     }

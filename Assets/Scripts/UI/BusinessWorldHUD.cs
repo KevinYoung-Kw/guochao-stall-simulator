@@ -177,6 +177,9 @@ namespace Guochao
         private string NextAction()
         {
             if (!owner.CanInteract || owner.ActiveWorkLabel!="" || owner.PendingWorkCount>0) return "";
+            if (owner.ServiceUsesCounterMeal)
+                return session.FindServingCounterOrder(owner.SelectedCounterMealId)>=0
+                    ? "点亮起的订单，交付选中的台面餐" : "这份台面餐还没人点 · 可另选成品";
             if (session.HeldMeal!=null)
                 return session.FindServingHeldOrder()>=0 ? "点亮起的订单递餐，或点取餐区放下"
                     : session.ReadyMeals.Count<BusinessSession.CounterCapacity ? "先把手里的成品放到取餐区" : "取餐区已满 · 等合适的顾客来点餐";
@@ -558,16 +561,7 @@ namespace Guochao
         // 否则只提示，绝不 SelectOrder、绝不自动交付。
         private void OnOrderClicked(int orderId)
         {
-            if(owner.TryRiskIntercept(orderId))return;
-            if(session.HeldMeal!=null){owner.DeliverHeldMealTo(orderId);return;}
-            string mealId=owner.SelectedCounterMealId;
-            if(mealId!="")
-            {
-                if(owner.Session.CanServeCounterMeal(mealId,orderId,out string reason))owner.DeliverCounterMealTo(orderId);
-                else owner.ShowInteractionHint(reason==""?"这份餐与订单不符":reason);
-                return;
-            }
-            ShowOrderGuide(orderId);
+            owner.ClickCustomerForService(orderId);
         }
         private void SetTagExpanded(Tag tag,bool expanded)
         {
@@ -614,7 +608,7 @@ namespace Guochao
             bool tips=TipsOn();
             if(tipLabel!=null)Set(tipLabel,tips
                 ? StallUiCopy.Text("stall.help_on","隐藏提示") : StallUiCopy.Text("stall.help_off","操作提示"));
-            if(context==""&&owner.SelectedCounterMealId!=""&&session.HeldMeal==null)
+            if(context==""&&owner.ServiceUsesCounterMeal)
             {
                 int pickup=owner.PickupOrderForMeal(owner.SelectedCounterMealId);
                 context=pickup>=0?"顾客正来取餐 · 可以继续备菜":session.FindServingCounterOrder(owner.SelectedCounterMealId)>=0
@@ -638,7 +632,11 @@ namespace Guochao
             pendingWork.gameObject.SetActive(queued);
             cancelPending.gameObject.SetActive(queued);cancelPending.interactable=!paused&&!HasOverlay;
             previousPending=owner.PendingWorkCount;
-            UpdateTags(paused);UpdateCursor();RefreshLanePanel(paused);RefreshMealCard(paused);RefreshHeldMealCard(paused);RefreshOrderGuide(paused);
+            UpdateTags(paused);UpdateCursor();RefreshLanePanel(paused);RefreshMealCard(paused);
+            // The card must describe the same meal used by customer clicks.
+            if(owner.ServiceUsesCounterMeal){if(heldCard!=null)heldCard.root.gameObject.SetActive(false);}
+            else RefreshHeldMealCard(paused);
+            RefreshOrderGuide(paused);
         }
         private void UpdateTags(bool paused)
         {
@@ -663,8 +661,7 @@ namespace Guochao
                         bool riskPending=session.HasPendingRiskOrder(order.id);
                         string mealId=owner.SelectedCounterMealId;
                         bool deliverable=false;string blockReason="";
-                        if(session.HeldMeal!=null)deliverable=session.CanServeHeldMeal(order.id,out blockReason);
-                        else if(mealId!="")deliverable=session.CanServeCounterMeal(mealId,order.id,out blockReason);
+                        if(owner.HasServiceMeal)deliverable=owner.CanServeFocusedMealTo(order.id,out blockReason);
                         SetTagExpanded(tag,true);
                         tag.face.color=riskPending||deliverable||focused?CampaignUI.Selected:paper;
                         Set(tag.title,session.OrderDishName(order.id)+" ×1");
@@ -683,7 +680,7 @@ namespace Guochao
                         if(riskPending)detail="点击这位顾客 · 追回款项";
                         else if(!order.arrived)detail="走近中";
                         else if(session.ReadyMeals.Any(m=>owner.PickupOrderForMeal(m.id)==order.id))detail="正在来取餐";
-                        else if(deliverable)detail=(session.HeldMeal!=null?"递给他 · ":"叫他取餐 · ")+CampaignUI.Money(session.OrderPriceCents(order.id));
+                        else if(deliverable)detail=(owner.ServiceUsesCounterMeal?"叫他取餐 · ":"递给他 · ")+CampaignUI.Money(session.OrderPriceCents(order.id));
                         else if(mealId!=""||session.HeldMeal!=null)detail=blockReason==""?"与订单不符":LimitCells(blockReason,10);
                         else detail=(string.IsNullOrEmpty(requestedFlavor)?"原味":StallInteractionInput.FlavorShortName(requestedFlavor))+" · 点开看做法";
                         Set(tag.detail,detail);
