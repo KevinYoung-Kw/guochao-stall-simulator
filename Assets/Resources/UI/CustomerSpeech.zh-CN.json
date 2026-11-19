@@ -1,0 +1,268 @@
+{
+  "lines": [
+    {
+      "trigger": "left",
+      "speaker": "",
+      "recipe": "",
+      "rare": false,
+      "reference": "",
+      "text": "算了不排了，等会儿真来不及了。"
+    },
+    {
+      "trigger": "S01",
+      "speaker": "",
+      "recipe": "",
+      "rare": false,
+      "reference": "",
+      "text": "辣椒油一定要加，早晨不吃辣醒不了。"
+    },
+    {
+      "trigger": "S02",
+      "speaker": "",
+      "recipe": "",
+      "rare": false,
+      "reference": "",
+      "text": "蒜蓉照加，反正戴着口罩谁闻得着。"
+    },
+    {
+      "trigger": "S05",
+      "speaker": "",
+      "recipe": "",
+      "rare": false,
+      "reference": "",
+      "text": "加甜辣酱吧，纯辣的早上胃顶不住。"
+    },
+    {
+      "trigger": "arrived",
+      "speaker": "worker",
+      "recipe": "fried_rice",
+      "rare": false,
+      "reference": "",
+      "text": "刚下夜班饿得发慌，就想扒口热蛋炒饭。"
+    },
+    {
+      "trigger": "arrived",
+      "speaker": "courier",
+      "recipe": "flatbread",
+      "rare": false,
+      "reference": "",
+      "text": "手抓饼装紧实点，我一会儿单手好拿。"
+    },
+    {
+      "trigger": "paid",
+      "speaker": "student",
+      "recipe": "fried_skewer",
+      "rare": false,
+      "reference": "",
+      "text": "付过啦，炸串竹签我拿稳，别戳破袋子。"
+    },
+    {
+      "trigger": "paid",
+      "speaker": "courier",
+      "recipe": "plum_drink",
+      "rare": false,
+      "reference": "",
+      "text": "钱转好了，酸梅汤挂车把上，一路解渴。"
+    },
+    {
+      "trigger": "wait",
+      "speaker": "student",
+      "recipe": "lemon_tea",
+      "rare": false,
+      "reference": "",
+      "text": "你这柠檬茶锤得真响，上课铃都快响了。"
+    },
+    {
+      "trigger": "paid",
+      "speaker": "worker",
+      "recipe": "flatbread",
+      "rare": false,
+      "reference": "",
+      "text": "付完啦，手抓饼趁热酥，我边走边啃。"
+    },
+    {
+      "trigger": "S01",
+      "speaker": "worker",
+      "recipe": "fried_skewer",
+      "rare": false,
+      "reference": "",
+      "text": "炸串得抹辣椒油，光撒粉干巴巴咽不下。"
+    },
+    {
+      "trigger": "wait",
+      "speaker": "auntie",
+      "recipe": "",
+      "rare": false,
+      "reference": "",
+      "text": "菜篮提得手勒红了，快轮到我没啊？"
+    },
+    {
+      "trigger": "left",
+      "speaker": "courier",
+      "recipe": "",
+      "rare": false,
+      "reference": "",
+      "text": "新单响个不停，不等了，下趟路过再说。"
+    },
+    {
+      "trigger": "left",
+      "speaker": "student",
+      "recipe": "",
+      "rare": false,
+      "reference": "",
+      "text": "要迟到了要迟到了，这顿先撤，真来不及。"
+    },
+    {
+      "trigger": "left",
+      "speaker": "auntie",
+      "recipe": "",
+      "rare": false,
+      "reference": "",
+      "text": "家里还炖着粥呢，不等了，先回去了啊。"
+    },
+    {
+      "trigger": "S02",
+      "speaker": "auntie",
+      "recipe": "",
+      "rare": false,
+      "reference": "",
+      "text": "加蒜蓉，家里嫌剥蒜麻烦，出来吃省事。"
+    },
+    {
+      "trigger": "S05",
+      "speaker": "student",
+      "recipe": "",
+      "rare": false,
+      "reference": "",
+      "text": "要甜辣酱，刚才一路吹风，想吃口带甜的。"
+    },
+    {
+      "trigger": "arrived",
+      "speaker": "auntie",
+      "recipe": "",
+      "rare": true,
+      "reference": "不烧心",
+      "text": "最近短剧全在讲不烧心，我就买个早饭。"
+    },
+    {
+      "trigger": "arrived",
+      "speaker": "student",
+      "recipe": "plum_drink",
+      "rare": true,
+      "reference": "喝大水",
+      "text": "抱两升大水戒小甜水，酸梅汤算凉茶吧。"
+    },
+    {
+      "trigger": "paid",
+      "speaker": "student",
+      "recipe": "lemon_tea",
+      "rare": true,
+      "reference": "喝大水",
+      "text": "说好喝大水，柠檬茶一锤我手就扫了。"
+    },
+    {
+      "trigger": "wait",
+      "speaker": "courier",
+      "recipe": "",
+      "rare": true,
+      "reference": "慌啥子嘛",
+      "text": "慌啥子嘛慢慢来，我先把头盔扣系好。"
+    },
+    {
+      "trigger": "wait",
+      "speaker": "worker",
+      "recipe": "",
+      "rare": true,
+      "reference": "慌啥子嘛",
+      "text": "慌啥子嘛饭照吃，就是偷看三回时间了。"
+    },
+    {
+      "trigger": "wait",
+      "speaker": "",
+      "recipe": "",
+      "rare": true,
+      "reference": "等新作",
+      "text": "等个游戏跳票几年都忍了，排会儿队算啥。"
+    },
+    {
+      "trigger": "arrived",
+      "speaker": "",
+      "recipe": "lemon_tea",
+      "rare": true,
+      "reference": "喝大水",
+      "text": "两升白水拎着呢，先来杯手锤柠檬茶。"
+    },
+    {
+      "trigger": "arrived",
+      "speaker": "",
+      "recipe": "",
+      "rare": false,
+      "reference": "",
+      "text": "刚路过闻着香，脚步自个拐过来了。"
+    },
+    {
+      "trigger": "wait",
+      "speaker": "",
+      "recipe": "",
+      "rare": false,
+      "reference": "",
+      "text": "我先站边上歇脚，你别忘了还有我。"
+    },
+    {
+      "trigger": "paid",
+      "speaker": "",
+      "recipe": "",
+      "rare": false,
+      "reference": "",
+      "text": "码扫完付好了，我拎着走不堵摊口。"
+    },
+    {
+      "trigger": "left",
+      "speaker": "",
+      "recipe": "",
+      "rare": false,
+      "reference": "",
+      "text": "不站这儿干等了，我拐去隔壁瞅瞅。"
+    },
+    {
+      "trigger": "S01",
+      "speaker": "worker",
+      "recipe": "fried_rice",
+      "rare": false,
+      "reference": "",
+      "text": "蛋炒饭给我浇点辣油，干吃没劲儿。"
+    },
+    {
+      "trigger": "S02",
+      "speaker": "auntie",
+      "recipe": "fried_skewer",
+      "rare": false,
+      "reference": "",
+      "text": "炸串刷蒜蓉，反正回家也没人嫌。"
+    },
+    {
+      "trigger": "S05",
+      "speaker": "student",
+      "recipe": "flatbread",
+      "rare": false,
+      "reference": "",
+      "text": "手抓饼刷甜辣酱，吃辣我只会干咳。"
+    },
+    {
+      "trigger": "arrived",
+      "speaker": "auntie",
+      "recipe": "soup",
+      "rare": false,
+      "reference": "",
+      "text": "菜篮子搁脚边了，给我来碗鱼蛋汤。"
+    },
+    {
+      "trigger": "paid",
+      "speaker": "worker",
+      "recipe": "flatbread",
+      "rare": false,
+      "reference": "",
+      "text": "付完了，手套刚摘，手抓饼直接啃。"
+    }
+  ]
+}

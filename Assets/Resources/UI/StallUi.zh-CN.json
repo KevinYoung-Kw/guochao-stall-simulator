@@ -1,0 +1,196 @@
+{
+  "lines": [
+    {
+      "id": "stall.help_on",
+      "text": "提示：开"
+    },
+    {
+      "id": "stall.help_off",
+      "text": "提示：关"
+    },
+    {
+      "id": "stall.empty",
+      "text": "把食材拖进锅里"
+    },
+    {
+      "id": "stall.no_stock",
+      "text": "现有器具没法下料，去看看库存和设备"
+    },
+    {
+      "id": "stall.prep",
+      "text": "选好做法再点开火，还能继续加料"
+    },
+    {
+      "id": "stall.cold_prep",
+      "text": "选好做法点制作就行，这道不用开火"
+    },
+    {
+      "id": "stall.manual_heat",
+      "text": "热着呢，看准进度条再动手"
+    },
+    {
+      "id": "stall.auto_heat",
+      "text": "设备正自动做着，等它做完就行"
+    },
+    {
+      "id": "stall.finish",
+      "text": "火候到了，快点锅"
+    },
+    {
+      "id": "stall.cold_finish",
+      "text": "该动手了，点对应器具把这份做完"
+    },
+    {
+      "id": "stall.season",
+      "text": "现在可以调味，按需要点调味瓶"
+    },
+    {
+      "id": "stall.pack",
+      "text": "做好了，点出餐台装盒摆上去"
+    },
+    {
+      "id": "stall.pack_missing",
+      "text": "没合用的包装，看眼库存"
+    },
+    {
+      "id": "stall.counter_full",
+      "text": "出餐台6个位全满了，先送几份腾地方"
+    },
+    {
+      "id": "stall.select_meal",
+      "text": "餐上台了，先点选台上要送的那份"
+    },
+    {
+      "id": "stall.deliver",
+      "text": "点订单亮起的客人，把这份递过去"
+    },
+    {
+      "id": "stall.no_match",
+      "text": "眼下没人要这份，先搁台上或换一份选"
+    },
+    {
+      "id": "stall.no_match_closing",
+      "text": "快收摊不接新客了，这份没人要，换份能送的"
+    },
+    {
+      "id": "stall.clean",
+      "text": "锅糊了，点锅先刷干净"
+    },
+    {
+      "id": "stall.finishing",
+      "text": "正在自动收尾，等这一步完成"
+    },
+    {
+      "id": "stall.matched_count",
+      "text": "有{0}位客人要这份"
+    },
+    {
+      "id": "stall.unmatched",
+      "text": "眼下没人要这份"
+    },
+    {
+      "id": "checkout.due",
+      "text": "应付金额"
+    },
+    {
+      "id": "checkout.balance",
+      "text": "付完预计剩 {0}"
+    },
+    {
+      "id": "checkout.cash",
+      "text": "手头现金 {0}"
+    },
+    {
+      "id": "checkout.short",
+      "text": "手头钱不够，还差 {0}，少勾几件再结"
+    },
+    {
+      "id": "checkout.empty",
+      "text": "还没勾货，先选要买的再结账"
+    },
+    {
+      "id": "checkout.returned",
+      "text": "没勾的 {0} 件付款时会退回"
+    },
+    {
+      "id": "checkout.all",
+      "text": "整篮货都勾上了"
+    },
+    {
+      "id": "checkout.next",
+      "text": "可以结账，付完去门外装车"
+    },
+    {
+      "id": "checkout.capacity",
+      "text": "车里装不下这么多，少勾几件吧"
+    },
+    {
+      "id": "closing.paid",
+      "text": "已收齐"
+    },
+    {
+      "id": "closing.unpaid",
+      "text": "未收到钱"
+    },
+    {
+      "id": "closing.extra",
+      "text": "欠账要回来了"
+    },
+    {
+      "id": "closing.partial",
+      "text": "只收了一部分"
+    },
+    {
+      "id": "closing.unsold",
+      "text": "锅里熟食 {0} 份、台上已装盒 {1} 份没卖出"
+    },
+    {
+      "id": "closing.no_sales_flavor",
+      "text": "锅都没怎么沾油，收摊倒省事了"
+    },
+    {
+      "id": "closing.sold_flavor",
+      "text": "钱匣子沉了点，收摊推车倒轻快了"
+    },
+    {
+      "id": "plan.cooked",
+      "text": "车上备货：齐料标准菜 {0} 道，计划 {1} 道"
+    },
+    {
+      "id": "plan.methods",
+      "text": "车上备货可做：{0}"
+    },
+    {
+      "id": "plan.no_methods",
+      "text": "车上备货暂无可做做法，请补齐食材或设备"
+    },
+    {
+      "id": "plan.method.stir_fry",
+      "text": "炒"
+    },
+    {
+      "id": "plan.method.griddle",
+      "text": "煎"
+    },
+    {
+      "id": "plan.method.boil",
+      "text": "煮"
+    },
+    {
+      "id": "plan.method.fry",
+      "text": "炸"
+    },
+    {
+      "id": "plan.method.reheat",
+      "text": "复热"
+    },
+    {
+      "id": "plan.method.cold_mix",
+      "text": "冷调"
+    },
+    {
+      "id": "plan.method.muddle",
+      "text": "捣压"
+    }
+  ]
+}

@@ -1,0 +1,87 @@
+{
+  "all_pass": true,
+  "routes": [
+    {
+      "world": "HomeWorld",
+      "target": "StovePickup",
+      "reachable_on_proxy_grid": true,
+      "nearest_proxy_clearance_m": 1.0025217678437053,
+      "clearance_at_least_half_metre": true,
+      "character_radius_m": 0.25,
+      "grid_resolution_m": 0.15
+    },
+    {
+      "world": "HomeWorld",
+      "target": "HomeCart",
+      "reachable_on_proxy_grid": true,
+      "nearest_proxy_clearance_m": 0.6624999046325684,
+      "clearance_at_least_half_metre": true,
+      "character_radius_m": 0.25,
+      "grid_resolution_m": 0.15
+    },
+    {
+      "world": "HomeWorld",
+      "target": "HomeExit",
+      "reachable_on_proxy_grid": true,
+      "nearest_proxy_clearance_m": 1.5499998696654318,
+      "clearance_at_least_half_metre": true,
+      "character_radius_m": 0.25,
+      "grid_resolution_m": 0.15
+    },
+    {
+      "world": "MarketWorld",
+      "target": "RiceShelf",
+      "reachable_on_proxy_grid": true,
+      "nearest_proxy_clearance_m": 0.7000002861022949,
+      "clearance_at_least_half_metre": true,
+      "character_radius_m": 0.25,
+      "grid_resolution_m": 0.15
+    },
+    {
+      "world": "MarketWorld",
+      "target": "MeatShelf",
+      "reachable_on_proxy_grid": true,
+      "nearest_proxy_clearance_m": 0.7999992370605469,
+      "clearance_at_least_half_metre": true,
+      "character_radius_m": 0.25,
+      "grid_resolution_m": 0.15
+    },
+    {
+      "world": "MarketWorld",
+      "target": "EggShelf",
+      "reachable_on_proxy_grid": true,
+      "nearest_proxy_clearance_m": 0.7999992370605469,
+      "clearance_at_least_half_metre": true,
+      "character_radius_m": 0.25,
+      "grid_resolution_m": 0.15
+    },
+    {
+      "world": "MarketWorld",
+      "target": "Cashier",
+      "reachable_on_proxy_grid": true,
+      "nearest_proxy_clearance_m": 0.9499998092651367,
+      "clearance_at_least_half_metre": true,
+      "character_radius_m": 0.25,
+      "grid_resolution_m": 0.15
+    },
+    {
+      "world": "MarketWorld",
+      "target": "MarketCart",
+      "reachable_on_proxy_grid": true,
+      "nearest_proxy_clearance_m": 0.800000011920929,
+      "clearance_at_least_half_metre": true,
+      "character_radius_m": 0.25,
+      "grid_resolution_m": 0.15
+    },
+    {
+      "world": "MarketWorld",
+      "target": "MarketExit",
+      "reachable_on_proxy_grid": true,
+      "nearest_proxy_clearance_m": 1.5300003290176392,
+      "clearance_at_least_half_metre": true,
+      "character_radius_m": 0.25,
+      "grid_resolution_m": 0.15
+    }
+  ],
+  "note": "2D proxy-box reachability check at radius 0.25m, 0.15m grid, including separate vehicle body. Unity physics and step handling remain engine checks."
+}
