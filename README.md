@@ -2,7 +2,7 @@
 
 一款以街头小吃摊为主题的 2.5D 模拟经营游戏，使用 Unity 开发。你可以准备家当、自由采购、选择摊位，再把手中的食材变成今天要卖的东西。
 
-[在线游戏](https://www.kw-aigc.cn/demos/guochao/) · [源代码](https://github.com/KevinYoung-Kw/guochao-stall-simulator)
+[在线游戏](https://www.kw-aigc.cn/demos/guochao/) · [项目报告](docs/PROJECT-REPORT.md) · [源代码](https://github.com/KevinYoung-Kw/guochao-stall-simulator)
 
 ![当前版本实机界面：经营场景](docs/screenshots/business-v20.webp)
 
