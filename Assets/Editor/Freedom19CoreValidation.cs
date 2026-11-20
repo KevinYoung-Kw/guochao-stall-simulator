@@ -250,7 +250,8 @@ namespace Guochao
             cash=session.CashCents;
             Check(!session.ServeCounterMeal(meal.id,order.id),"serve.duplicateRejected");
             Check(session.CashCents==cash,"serve.noDoublePay");
-            Check(session.OrderDishName(order.id)==product.name,"serve.namePersists");
+            Check(order.productId==product.id&&order.productName==product.name&&order.productPriceCents==product.priceCents,"serve.identityPersists");
+            Check(session.OrderDishName(order.id)==product.DisplayName,"serve.displayPersists");
         }
 
         static void SaveRoundtripDeepCopyAndLegacyV2()
@@ -312,7 +313,8 @@ namespace Guochao
             Check(restored.RiskState.ActiveEvent!=null,"risk.restoreWithNewPrep");
             Check(session.TryCompleteRiskSale(active.Serial,active.CollectCents),"risk.recovered");
             Check(session.CashCents==cash+active.CollectCents,"risk.recoveryPaid");
-            Check(session.OrderDishName(order.id)==product.name,"risk.namePersists");
+            Check(order.productId==product.id&&order.productName==product.name&&order.productPriceCents==product.priceCents,"risk.identityPersists");
+            Check(session.OrderDishName(order.id)==product.DisplayName,"risk.displayPersists");
         }
 
         static void LastPackageStillFindsCustomer()
@@ -385,7 +387,9 @@ namespace Guochao
             Check(packed.ServeCounterMeal(meal.id,order.id),"json.realDelivery");
             var sold=JsonRoundtrip(packed);
             Check(sold.RevenueCents==meal.priceCents&&sold.ReadyMeals.Count==0,"json.soldMoneyPersisted");
-            Check(sold.OrderDishName(order.id)==meal.product.name,"json.soldIdentityPersisted");
+            var restoredOrder=sold.FindOrder(order.id);
+            Check(restoredOrder.productId==meal.product.id&&restoredOrder.productName==meal.product.name&&restoredOrder.productPriceCents==meal.product.priceCents,"json.soldIdentityPersisted");
+            Check(sold.OrderDishName(order.id)==meal.product.DisplayName,"json.soldDisplayPersisted");
         }
         static void AmbiguousFruitIsRealGenericOffer()
         {

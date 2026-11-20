@@ -172,12 +172,12 @@ namespace Guochao
                 quality=batch.vesselId=="V04"?1.1f:1f,
                 inputs=CloneInputs(batch.inputs),packages=FreeKitchenRules.PackagesFor(batch.method),
                 priceCents=FreeKitchenRules.FairPriceCents(batch.inputs,portions,matched)};
-            product.name=matched>=0?Recipes[matched].name:FreeKitchenRules.ComposeName(batch.inputs,batch.method);
+            product.name=matched>=0?Recipes[matched].name:FreeKitchenRules.LegacyComposeName(batch.inputs,batch.method);
             batch.product=product;
             bool cold=FreeKitchenRules.IsColdMethod(batch.method);
             lane.seasoned=cold||batch.method==FreeKitchenRules.MethodReheat;
             lane.step=lane.seasoned?KitchenStep.Pack:KitchenStep.Season;lane.remaining=0;
-            Message=product.name+"出锅（"+portions+" 份）· "+(cold?"可装台出餐。":"调味后可装台出餐。");
+            Message=product.DisplayName+"出锅（"+portions+" 份）· "+(cold?"可装台出餐。":"调味后可装台出餐。");
             Revision++;return true;
         }
 
@@ -223,7 +223,7 @@ namespace Guochao
             KitchenLane lane=Lanes[laneIndex];
             if(lane.freeBatch!=null)
             {
-                if(lane.freeBatch.product!=null)return lane.freeBatch.product.name;
+                if(lane.freeBatch.product!=null)return lane.freeBatch.product.DisplayName;
                 return FreeKitchenRules.ComposeName(lane.freeBatch.inputs,lane.freeBatch.method);
             }
             return recipeName(lane.recipeIndex);
@@ -282,7 +282,7 @@ namespace Guochao
             string pending=lane.pendingFlavorId??"";
             if(pending!="")
             {
-                if(!FreeKitchenRules.FlavorCompatible(product,pending)){reason=StallFlavorMenu.Find(pending).name+"不适合"+product.name+"。";return false;}
+                if(!FreeKitchenRules.FlavorCompatible(product,pending)){reason=StallFlavorMenu.Find(pending).name+"不适合"+product.DisplayName+"。";return false;}
                 if(Count(pending)<=0){reason=StallFlavorMenu.Find(pending).name+"已经用完 · 先补货";return false;}
             }
             return true;
@@ -296,17 +296,17 @@ namespace Guochao
             var meal=PackOnePortion(Lanes[laneIndex],packageId);
             ReadyMeals.Add(meal);
             if(ReadyMeals.Count==1&&AcceptingOrders)nextCustomer=Math.Min(nextCustomer,1f);
-            Message=meal.product.name+"已放到取餐区（¥"+(meal.priceCents/100f).ToString("0.00")+"），点想要这份餐的顾客来取。";
+            Message=meal.product.DisplayName+"已放到取餐区（¥"+(meal.priceCents/100f).ToString("0.00")+"），点想要这份餐的顾客来取。";
             Revision++;return true;
         }
 
         // ── 顾客匹配：只读推荐，最老到位兼容顾客；无则 -1（餐保留）─────
-        static bool OrderAcceptsProduct(StallOrder order,FoodProduct product,string packagedFlavor)
+        bool OrderAcceptsProduct(StallOrder order,FoodProduct product,string packagedFlavor)
         {
             if(order==null||product==null||!order.arrived||order.served||order.departed)return false;
             // 实际包装风味与点单冲突时不兼容（选了别的瓶不能当指定风味足价卖）。
             if((packagedFlavor??"")!=(order.requestedFlavorId??""))return false;
-            if(order.productId!="")return order.productId==product.id||order.productName==product.name&&order.productPriceCents==product.priceCents;
+            if(order.productId!="")return SameOrderProduct(order,product);
             return product.matchedRecipeIndex>=0&&product.matchedRecipeIndex==order.recipeIndex;
         }
         public int FindServingOrder(int laneIndex)
@@ -365,14 +365,58 @@ namespace Guochao
         {
             order.recipeIndex=product.visualRecipeIndex;order.productId=product.id;order.productName=product.name;order.productMethod=product.method;
             order.productFamily=product.family;order.productPriceCents=product.priceCents;
+            order.productInputs=CloneInputs(product.inputs);order.productSourcePortions=product.sourcePortions;
             order.servedFlavorId=flavorId;
+        }
+        FoodProduct FindProductById(string id)
+        {
+            if(string.IsNullOrEmpty(id))return null;
+            foreach(var lane in Lanes){var p=lane.freeBatch?.product;if(p!=null&&p.id==id)return p;}
+            foreach(var meal in PackedMeals())if(meal.product!=null&&meal.product.id==id)return meal.product;
+            return null;
+        }
+        static bool SameIngredientKinds(FoodInput[] a,FoodInput[] b)
+        {
+            if(a==null||b==null||a.Length==0||a.Length!=b.Length)return false;
+            var remaining=new HashSet<string>(StringComparer.Ordinal);
+            foreach(var input in a)if(input==null||input.units<=0||!remaining.Add(input.itemId))return false;
+            foreach(var input in b)if(input==null||input.units<=0||!remaining.Remove(input.itemId))return false;
+            return remaining.Count==0;
+        }
+        // Preserve exact old name/quote fallback only when a legacy order has no
+        // ingredient snapshot and its source is gone. New orders, or old orders
+        // with an available source, compare real ingredient kinds and method.
+        public bool SameOrderProduct(StallOrder order,FoodProduct product)
+        {
+            if(order==null||product==null||string.IsNullOrEmpty(order.productId))return false;
+            if(order.productId==product.id)return true;
+            if(order.productPriceCents!=product.priceCents)return false;
+            FoodInput[] inputs=order.productInputs;
+            if(inputs==null||inputs.Length==0)
+            {
+                var original=FindProductById(order.productId);
+                if(original==null)return order.productName==product.name; // exact v24 fallback; inputs unavailable
+                inputs=original.inputs;
+            }
+            return order.productMethod==product.method&&SameIngredientKinds(inputs,product.inputs);
         }
         public string OrderDishName(int orderId)
         {
             var order=FindOrder(orderId);
             if(order==null)return "";
+            if(order.productInputs!=null&&order.productInputs.Length>0)return FreeKitchenRules.ComposeName(order.productInputs,order.productMethod);
+            var original=FindProductById(order.productId);
+            if(original!=null)return original.DisplayName;
             if(order.productName!="")return order.productName;
             return recipeName(order.recipeIndex);
+        }
+        public static int VerifiedOrderRecipeIndex(StallOrder order)
+        {
+            if(order==null)return -1;
+            if(order.productInputs!=null&&order.productInputs.Length>0)
+                return FreeKitchenRules.MatchRecipe(order.productInputs,order.productMethod,order.productSourcePortions);
+            return order.recipeIndex>=0&&order.recipeIndex<Recipes.Length&&
+                (string.IsNullOrEmpty(order.productName)||order.productName==Recipes[order.recipeIndex].name)?order.recipeIndex:-1;
         }
         // 稳定报价：始终 = 基础价 + 点单指定风味的合格加价（与实收无关；风险未收单
         // 报价也不变）。实收另读 order.paidCents。

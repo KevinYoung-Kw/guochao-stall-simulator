@@ -35,11 +35,11 @@ namespace Guochao
             foreach(var method in FreeKitchenRules.Methods)if(method.family==recipe.family)return method.id;
             return "";
         }
-        static bool Matches(StallOrder order,FoodProduct product)
+        static bool Matches(BusinessSession session,StallOrder order,FoodProduct product)
         {
             if(product==null)return false;
             if(!string.IsNullOrEmpty(order.productId))
-                return product.id==order.productId||(product.name==order.productName&&product.priceCents==order.productPriceCents);
+                return session.SameOrderProduct(order,product);
             return product.matchedRecipeIndex==order.recipeIndex;
         }
         static string Item(string id)=>BusinessWorldHUD.ShortItem(id);
@@ -53,14 +53,14 @@ namespace Guochao
             bool generic=!string.IsNullOrEmpty(order.productId);
             FoodProduct source=null;
             CounterMeal readyMeal=null;
-            if(session.HeldMeal!=null&&Matches(order,session.HeldMeal.product))
+            if(session.HeldMeal!=null&&Matches(session,order,session.HeldMeal.product))
             {
                 source=session.HeldMeal.product;
                 if(session.CanServeHeldMeal(orderId,out _)){readyMeal=session.HeldMeal;result.next="已装在手上 · 点这位顾客直接递餐";}
             }
             foreach(var meal in session.ReadyMeals)
             {
-                if(!Matches(order,meal.product))continue;
+                if(!Matches(session,order,meal.product))continue;
                 if(source==null)source=meal.product;
                 if(readyMeal==null&&session.CanServeCounterMeal(meal.id,orderId,out _))
                 {readyMeal=meal;result.next="取餐区已有成品 · 点食物，再点这位顾客";}
@@ -69,7 +69,7 @@ namespace Guochao
             for(int i=0;i<session.Lanes.Length;i++)
             {
                 var lane=session.Lanes[i];var product=session.ProductAtLane(i);
-                bool matches=Matches(order,product);
+                bool matches=Matches(session,order,product);
                 if(!matches&&!generic&&lane.freeBatch!=null&&lane.freeBatch.inputs.Length>0)
                 {
                     int portions=FreeKitchenRules.DerivePortions(lane.freeBatch.inputs);
@@ -80,7 +80,7 @@ namespace Guochao
                 if(source==null&&product!=null)source=product;
                 if(matchingLane<0)matchingLane=i;
             }
-            result.recipeIndex=generic?(source?.matchedRecipeIndex??-1):order.recipeIndex;
+            result.recipeIndex=generic?(source?.matchedRecipeIndex??BusinessSession.VerifiedOrderRecipeIndex(order)):order.recipeIndex;
             result.method=generic?(source?.method??order.productMethod):RecipeMethod(order.recipeIndex);
             string[] packages;
             if(generic&&source!=null)
@@ -91,6 +91,12 @@ namespace Guochao
                     if(input!=null&&input.units>0)result.ingredients.Add(new Ingredient{id=input.itemId,units=input.units,available=session.Count(input.itemId)});
                 packages=source.packages??Array.Empty<string>();
                 result.hasExactInputs=result.ingredients.Count>0;
+            }
+            else if(generic&&order.productInputs!=null&&order.productInputs.Length>0)
+            {
+                foreach(var input in order.productInputs)
+                    if(input!=null&&input.units>0)result.ingredients.Add(new Ingredient{id=input.itemId,units=input.units,available=session.Count(input.itemId)});
+                packages=FreeKitchenRules.PackagesFor(result.method);result.hasExactInputs=result.ingredients.Count>0;
             }
             else if(!generic&&order.recipeIndex>=0&&order.recipeIndex<BusinessSession.Recipes.Length)
             {

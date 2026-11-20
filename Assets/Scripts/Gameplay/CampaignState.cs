@@ -137,15 +137,12 @@ namespace Guochao
                 if(!order.served)continue;
                 string name=service.OrderDishName(order.id);
                 if(string.IsNullOrEmpty(name))name="现做餐品";
-                string group=name+"\u001f"+order.paidCents;
+                int matched=BusinessSession.VerifiedOrderRecipeIndex(order);
+                string recipeId=matched>=0?BusinessSession.Recipes[matched].id:"";
+                string group=name+"\u001f"+order.paidCents+"\u001f"+recipeId;
                 if(!saleGroups.TryGetValue(group,out CampaignSaleRow row))
                 {
-                    string id="sale-"+order.id;
-                    if(order.recipeIndex>=0&&order.recipeIndex<BusinessSession.Recipes.Length)
-                    {
-                        StallRecipe recipe=BusinessSession.Recipes[order.recipeIndex];
-                        if(recipe.name==name)id=recipe.id;
-                    }
+                    string id=recipeId!=""?recipeId:"sale-"+order.id;
                     row=new CampaignSaleRow{id=id,name=name,unitPriceCents=order.paidCents};
                     saleGroups.Add(group,row);ledger.sales.Add(row);
                 }

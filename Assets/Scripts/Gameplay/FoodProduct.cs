@@ -23,6 +23,7 @@ namespace Guochao
         public int sourcePortions=1; // input provenance denominator, retained by one-serving snapshots
         public FoodInput[] inputs=Array.Empty<FoodInput>();
         public string[] packages=Array.Empty<string>();
+        public string DisplayName=>FreeKitchenRules.ComposeName(inputs,method);
         public FoodProduct Copy()
         {
             var clone=new FoodProduct{id=id,name=name,method=method,family=family,

@@ -733,7 +733,7 @@ namespace Guochao
                             case KitchenStep.Pack:title=freeLane?"可以装餐":"可以打包";detail=freeLane?"选择包材，装好拿起":"把菜拖到盒袋里";break;
                             case KitchenStep.ReadyStock:
                                 {var product=session.ProductAtLane(target.lane);
-                                title=product!=null&&product.name!=""?"出锅 · "+product.name:(coldLane?"备好 ":"熟了 ")+lane.batchRemaining+" 份";
+                                title=product!=null&&product.DisplayName!=""?"出锅 · "+product.DisplayName:(coldLane?"备好 ":"熟了 ")+lane.batchRemaining+" 份";
                                 detail=product!=null?"装好拿起 · 余 "+product.remaining+" 份":"选择包材 · 或点锅盛出";break;}
                             case KitchenStep.Dirty:title="糊锅了";detail="点锅清理";break;
                         }
@@ -985,7 +985,9 @@ namespace Guochao
             SetLaneIngredients(guide.inputs);
             if(freeView)
             {
-                string status=guide.next;
+                // The cooked product name is derived from the inputs, never
+                // from the visual recipe index or a historical internal label.
+                string status=product!=null?product.DisplayName+"\n"+guide.next:guide.next;
                 if(emergency&&canPack)status+="\n应急薄袋 · 售出国潮 −5";
                 else
                 {
@@ -1047,7 +1049,7 @@ namespace Guochao
             mealCard.root.gameObject.SetActive(show);
             if(!show)return;
             string flavor=meal.flavorId!=null&&meal.flavorId!=""?" · "+StallInteractionInput.FlavorShortName(meal.flavorId):"";
-            string name=meal.product!=null&&meal.product.name!=""?meal.product.name:"出餐";
+            string name=meal.product!=null&&meal.product.DisplayName!=""?meal.product.DisplayName:"出餐";
             Set(mealCard.title,name);
             int pickup=owner.PickupOrderForMeal(meal.id);
             int matched=0;

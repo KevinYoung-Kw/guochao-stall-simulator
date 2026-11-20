@@ -28,10 +28,10 @@ namespace Guochao
         }
         public static readonly MaterialDef[] Materials={
             new MaterialDef{itemId="rice",name="米面",valueCents=90,methods=new[]{MethodStirFry,MethodBoil,MethodReheat}},
-            new MaterialDef{itemId="egg",name="蛋菜",valueCents=135,methods=new[]{MethodStirFry,MethodGriddle,MethodBoil}},
+            new MaterialDef{itemId="egg",name="鸡蛋",valueCents=135,methods=new[]{MethodStirFry,MethodGriddle,MethodBoil}},
             new MaterialDef{itemId="meat",name="鲜肉",valueCents=315,methods=new[]{MethodStirFry,MethodGriddle,MethodBoil,MethodFry}},
             new MaterialDef{itemId="dough",name="饼胚",valueCents=108,methods=new[]{MethodGriddle,MethodFry}},
-            new MaterialDef{itemId="skewer",name="烤串",valueCents=162,methods=new[]{MethodGriddle,MethodBoil,MethodFry}},
+            new MaterialDef{itemId="skewer",name="串料",valueCents=162,methods=new[]{MethodGriddle,MethodBoil,MethodFry}},
             new MaterialDef{itemId="prepared",name="料理包",valueCents=270,methods=new[]{MethodReheat,MethodBoil}},
             new MaterialDef{itemId="fruit",name="鲜果",valueCents=198,methods=new[]{MethodColdMix,MethodMuddle}}};
 
@@ -56,19 +56,19 @@ namespace Guochao
         // 做法→设备映射沿用 canonical 锅具-底座兼容矩阵（CompatibleVessel 同款），
         // 不是按菜名/视觉索引。baseIds 顺序即偏好顺序（靠前的底座优先绑定）。
         public static readonly MethodDef[] Methods={
-            new MethodDef{id=MethodStirFry,label="小炒",family="猛火现炒",cold=false,
+            new MethodDef{id=MethodStirFry,label="炒",family="猛火现炒",cold=false,
                 vesselIds=new[]{"V01","V02","V03","V04"},toolIds=new[]{"U01","U02","U03"},baseIds=new[]{"B04","B03","B02","B01"},capacity=0},
-            new MethodDef{id=MethodGriddle,label="煎饼",family="煎烙面点",cold=false,
+            new MethodDef{id=MethodGriddle,label="煎",family="煎烙面点",cold=false,
                 vesselIds=new[]{"V05","V06","V07"},toolIds=new[]{"U04","U05"},baseIds=new[]{"B04","B03","B05","B02","B01"},capacity=2},
-            new MethodDef{id=MethodBoil,label="热汤",family="汤水卤煮",cold=false,
+            new MethodDef{id=MethodBoil,label="煮",family="汤水卤煮",cold=false,
                 vesselIds=new[]{"V09","V10"},toolIds=new[]{"U11","U12"},baseIds=new[]{"B04","B03","B06","B05","B02","B01"},capacity=4},
-            new MethodDef{id=MethodFry,label="炸串",family="街头油炸",cold=false,
+            new MethodDef{id=MethodFry,label="炸",family="街头油炸",cold=false,
                 vesselIds=new[]{"V13"},toolIds=new[]{"U08","U09"},baseIds=new[]{"B04","B03","B05","B02"},extraToolIds=new[]{"U10"},capacity=2},
             new MethodDef{id=MethodReheat,label="复热",family="科技预制",cold=false,
                 vesselIds=new[]{"RiceBucket"},toolIds=new[]{"U14"},baseIds=new[]{"B08","B07"},capacity=2},
-            new MethodDef{id=MethodColdMix,label="冷调饮",family="茶饮甜水",cold=true,
+            new MethodDef{id=MethodColdMix,label="冷调",family="茶饮甜水",cold=true,
                 vesselIds=new[]{"V16","V09","V15"},toolIds=new[]{"U12"},baseIds=new string[]{""},capacity=4},
-            new MethodDef{id=MethodMuddle,label="手锤饮",family="茶饮甜水",cold=true,
+            new MethodDef{id=MethodMuddle,label="手捣",family="茶饮甜水",cold=true,
                 vesselIds=new[]{"V15"},toolIds=new[]{"U13"},baseIds=new string[]{""},capacity=4}};
 
         public static MethodDef FindMethod(string methodId)
@@ -241,20 +241,38 @@ namespace Guochao
             return 0;
         }
 
-        // 泛称命名：玩家可读食物词（顿号连接材料 + 做法词），不含内部公式符号；
-        // 明细数量由 LaneContents 单独提供。
+        // Only name ingredients that were actually added.  Stable material
+        // order makes the same combination readable and comparable regardless
+        // of the order in which the player placed ingredients.
         public static string ComposeName(IReadOnlyList<FoodInput> inputs,string methodId)
         {
-            MethodDef method=FindMethod(methodId);
+            var selected=new HashSet<string>(StringComparer.Ordinal);
+            if(inputs!=null)foreach(var input in inputs)
+                if(input!=null&&input.units>0&&FindMaterial(input.itemId)!=null)selected.Add(input.itemId);
             var names=new List<string>();
-            if(inputs!=null)foreach(FoodInput input in inputs)
-            {
-                MaterialDef material=FindMaterial(input==null?null:input.itemId);
-                if(material!=null&&input.units>0)names.Add(material.name);
-            }
-            return string.Join("、",names)+(method==null?"":method.label);
+            foreach(var material in Materials)if(selected.Contains(material.itemId))names.Add(material.name);
+            string ingredients=string.Join("、",names);
+            var method=FindMethod(methodId);
+            return (method==null?"":method.label)+ingredients;
         }
 
+        // Frozen v24-and-earlier vocabulary: used ONLY to verify and display
+        // existing saves. Never rewrite a saved sale identity or quote.
+        static string LegacyMaterialName(string id)
+        {
+            switch(id){case "rice":return "米面";case "egg":return "蛋菜";case "meat":return "鲜肉";case "dough":return "饼胚";case "skewer":return "烤串";case "prepared":return "料理包";case "fruit":return "鲜果";default:return "";}
+        }
+        static string LegacyMethodLabel(string id)
+        {
+            switch(id){case MethodStirFry:return "小炒";case MethodGriddle:return "煎饼";case MethodBoil:return "热汤";case MethodFry:return "炸串";case MethodReheat:return "复热";case MethodColdMix:return "冷调饮";case MethodMuddle:return "手锤饮";default:return "";}
+        }
+        public static string LegacyComposeName(IReadOnlyList<FoodInput> inputs,string methodId)
+        {
+            var names=new List<string>();
+            if(inputs!=null)foreach(var input in inputs)
+                if(input!=null&&input.units>0&&LegacyMaterialName(input.itemId)!="")names.Add(LegacyMaterialName(input.itemId));
+            return string.Join("、",names)+LegacyMethodLabel(methodId);
+        }
         // 公平定价：每份 = Σ(units×真实单价)/份数 ×1.35 毛利，取整到 10 分，下限 ¥0.50；
         // 真实匹配标准菜谱时按菜谱价。quality 由会话按加工结果记录。
         public static int FairPriceCents(IReadOnlyList<FoodInput> inputs,int portions,int matchedRecipeIndex)

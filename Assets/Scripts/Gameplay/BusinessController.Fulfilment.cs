@@ -32,7 +32,7 @@ namespace Guochao
         {
             get
             {
-                if(Session?.HeldMeal!=null)return "手持 · "+Session.HeldMeal.product.name+" · 放上出餐台或递给顾客";
+                if(Session?.HeldMeal!=null)return "手持 · "+Session.HeldMeal.product.DisplayName+" · 放上出餐台或递给顾客";
                 if(IsPackingMeal)return "正在装餐 · 装好后拿在手上";
                 if(mealPickups.Count>0)return mealPickups.Count+" 位顾客正在取餐 · 可以继续备菜";
                 return "做好装餐 · 放台或直接递餐";

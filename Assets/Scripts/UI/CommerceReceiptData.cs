@@ -56,7 +56,7 @@ namespace Guochao
                 if(string.IsNullOrEmpty(name))name="现做餐品";
                 total+=order.paidCents;
                 lines.Add(new CommerceReceiptLine{id="sale-"+order.id,name=name,unit="份",quantity=1,
-                    unitCents=order.paidCents,subtotalCents=order.paidCents,recipeIndex=order.recipeIndex,
+                    unitCents=order.paidCents,subtotalCents=order.paidCents,recipeIndex=BusinessSession.VerifiedOrderRecipeIndex(order),
                     quotedCents=session.OrderPriceCents(order.id)});
             }
             int pending=session.PendingRiskCents;

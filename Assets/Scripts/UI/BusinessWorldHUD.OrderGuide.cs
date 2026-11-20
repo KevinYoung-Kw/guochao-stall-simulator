@@ -107,7 +107,7 @@ namespace Guochao
             heldCard.root.gameObject.SetActive(show);if(!show)return;
             if(lanePanel!=null)lanePanel.root.gameObject.SetActive(false);
             if(mealCard!=null)mealCard.root.gameObject.SetActive(false);
-            Set(heldCard.title,"手上 · "+(meal.product?.name??"成品"));
+            Set(heldCard.title,"手上 · "+(meal.product?.DisplayName??"成品"));
             Set(heldCard.detail,"1份 · "+CampaignUI.Money(meal.priceCents)+"\n点顾客直接递餐，或先放到取餐区");
             bool place=session.CanPlaceHeldMeal(out string reason)&&owner.CanInteract;
             string key=meal.id+"|"+place+"|"+owner.CanInteract;

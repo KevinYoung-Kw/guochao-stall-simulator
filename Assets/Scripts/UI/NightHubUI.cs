@@ -155,6 +155,7 @@ namespace Guochao
                 if(recipe>=0)
                 {
                     RectTransform picture=CampaignUI.Node(content,"Dish "+row.id);picture.anchorMin=picture.anchorMax=new Vector2(0,1);picture.anchoredPosition=new Vector2(35,-y-20);picture.sizeDelta=new Vector2(62,62);
+                    if(picture.GetComponent<CanvasRenderer>()==null)picture.gameObject.AddComponent<CanvasRenderer>();
                     var drawing=picture.gameObject.AddComponent<StallUIIcon>();drawing.index=recipe;drawing.raycastTarget=false;
                 }
                 RowText(content,row.name,82,y-6,480,35,23,CampaignUI.Ink,true);

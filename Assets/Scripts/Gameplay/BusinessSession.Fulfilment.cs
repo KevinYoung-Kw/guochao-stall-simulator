@@ -64,7 +64,7 @@ namespace Guochao
             string pending=lane.pendingFlavorId??"";
             if(pending!="")
             {
-                if(!FreeKitchenRules.FlavorCompatible(product,pending)){reason=StallFlavorMenu.Find(pending).name+"不适合"+product.name+"。";return false;}
+                if(!FreeKitchenRules.FlavorCompatible(product,pending)){reason=StallFlavorMenu.Find(pending).name+"不适合"+product.DisplayName+"。";return false;}
                 if(Count(pending)<=0){reason=StallFlavorMenu.Find(pending).name+"已经用完 · 先补货";return false;}
             }
             return true;
@@ -77,7 +77,7 @@ namespace Guochao
             var meal=PackOnePortion(Lanes[laneIndex],packageId);
             HeldMeal=meal;
             if(AcceptingOrders)nextCustomer=Mathf.Min(nextCustomer,1f);
-            Message=(meal.packageId==EmergencyBagId?"合用包材已用完，使用应急薄袋（售出国潮 −5）。":"")+meal.product.name+"已打包拿在手上（¥"+(meal.priceCents/100f).ToString("0.00")+"），可放上台或直接递给顾客。";
+            Message=(meal.packageId==EmergencyBagId?"合用包材已用完，使用应急薄袋（售出国潮 −5）。":"")+meal.product.DisplayName+"已打包拿在手上（¥"+(meal.priceCents/100f).ToString("0.00")+"），可放上台或直接递给顾客。";
             Revision++;return true;
         }
 
@@ -153,7 +153,7 @@ namespace Guochao
                 RecordFreeOrderFacts(order,product,flavorId);
                 order.paidCents=0;order.riskSerial=risk.Serial;order.shortSeasoning=meal.shortSeasoning;RiskEventsIssued++;
                 ApplyShortSeasoningAtSale(meal);
-                Message=product.name+"已出餐，对方扫码未到账——在 "+gate.interceptSeconds.ToString("0.0")+" 秒内点击对方追回！";
+                Message=product.DisplayName+"已出餐，对方扫码未到账——在 "+gate.interceptSeconds.ToString("0.0")+" 秒内点击对方追回！";
                 Revision++;PublishRiskSalePending(risk);return true;
             }
             order.emergencyPackage=meal.packageId==EmergencyBagId;
@@ -163,8 +163,8 @@ namespace Guochao
             RecordFreeOrderFacts(order,product,flavorId);
             order.paidCents=priceCents;order.riskSerial=0;order.shortSeasoning=meal.shortSeasoning;
             ApplyShortSeasoningAtSale(meal);
-            if(flavorMissed)Message=product.name+"已出餐：未加"+Name(order.requestedFlavorId)+"，按基础价成交。";
-            else Message=product.name+(flavorId!=""?"加"+StallFlavorMenu.Find(flavorId).name+"，收款":"已出餐，收款")+" ¥"+(priceCents/100f).ToString("0.00");
+            if(flavorMissed)Message=product.DisplayName+"已出餐：未加"+Name(order.requestedFlavorId)+"，按基础价成交。";
+            else Message=product.DisplayName+(flavorId!=""?"加"+StallFlavorMenu.Find(flavorId).name+"，收款":"已出餐，收款")+" ¥"+(priceCents/100f).ToString("0.00");
             Revision++;PublishSale(order.id,product.visualRecipeIndex,priceCents,meal.shortSeasoning);return true;
         }
 

@@ -127,12 +127,14 @@ namespace Guochao
         public int settlementPublications,selectedOrderId=-1,selectedLaneIndex=-1;
         public float simulationAccumulator;
         public BusinessPresentationSaveData presentation;
+        static FoodInput[] CopyOrderInputs(FoodInput[] values)
+        {if(values==null)return Array.Empty<FoodInput>();var copy=new FoodInput[values.Length];for(int i=0;i<values.Length;i++)copy[i]=values[i]?.Copy();return copy;}
         internal static StallOrder CopyOrder(StallOrder s)=>new StallOrder{id=s.id,recipeIndex=s.recipeIndex,lane=s.lane,reservedLane=s.reservedLane,
             spawnedAt=s.spawnedAt,arrivedAt=s.arrivedAt,startedAt=s.startedAt,finishedAt=s.finishedAt,departureReason=s.departureReason,
             patience=s.patience,maxPatience=s.maxPatience,arrived=s.arrived,departed=s.departed,served=s.served,customer=s.customer,
             paidCents=s.paidCents,riskSerial=s.riskSerial,shortSeasoning=s.shortSeasoning,emergencyPackage=s.emergencyPackage,
             requestedFlavorId=s.requestedFlavorId??"",servedFlavorId=s.servedFlavorId??"",
-            productId=s.productId??"",productName=s.productName??"",productMethod=s.productMethod??"",productFamily=s.productFamily??"",productPriceCents=s.productPriceCents};
+            productId=s.productId??"",productName=s.productName??"",productMethod=s.productMethod??"",productFamily=s.productFamily??"",productPriceCents=s.productPriceCents,productInputs=CopyOrderInputs(s.productInputs),productSourcePortions=s.productSourcePortions};
         internal static KitchenLane CopyLane(KitchenLane s)=>new KitchenLane{index=s.index,recipeIndex=s.recipeIndex,orderId=s.orderId,reservedOrderId=s.reservedOrderId,
             batchRemaining=s.batchRemaining,toolClicks=s.toolClicks,step=s.step,remaining=s.remaining,duration=s.duration,seasoned=s.seasoned,packageId=s.packageId,energy=s.energy,prepaidSeasoning=s.prepaidSeasoning,
             pendingFlavorId=s.pendingFlavorId??"",eggPrepPortions=s.eggPrepPortions,

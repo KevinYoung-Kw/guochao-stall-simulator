@@ -396,8 +396,7 @@ namespace Guochao
             {
                 int i=salesPage*perPage+row;if(i>=audit.lines.Length)break;
                 CommerceReceiptLine line=audit.lines[i];float y=132-row*59;
-                bool known=line.recipeIndex>=0&&line.recipeIndex<BusinessSession.Recipes.Length&&
-                    BusinessSession.Recipes[line.recipeIndex].name==line.name;
+                bool known=line.recipeIndex>=0&&line.recipeIndex<BusinessSession.Recipes.Length;
                 var icon=known?owner.Stage.DishIcon(line.recipeIndex):null;
                 if(icon!=null) SummaryIcon(summarySales,icon,new Vector2(-273,y),new Vector2(52,52));
                 else

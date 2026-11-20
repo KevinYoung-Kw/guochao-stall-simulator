@@ -107,6 +107,10 @@ namespace Guochao
         // 旧档缺字段（JsonUtility 补 ""/0）= 旧菜谱订单，语义不变。
         public string productId="",productName="",productMethod="",productFamily="";
         public int productPriceCents;
+        // Optional presentation/verification snapshot for newly created product orders.
+        // Old saves omit it; stored product identity and quote never change.
+        public FoodInput[] productInputs=Array.Empty<FoodInput>();
+        public int productSourcePortions;
     }
     // RISK7（EVENT7R 冻结 DTO，字段名不得改）：Serve 前风险闸门决策。
     [Serializable] public sealed class StallRiskGateDecision
@@ -559,6 +563,19 @@ namespace Guochao
                 o.productId=o.productId??"";o.productName=o.productName??"";o.productMethod=o.productMethod??"";o.productFamily=o.productFamily??"";
                 if(o.productId!=""&&(o.productName==""||o.productPriceCents<=0||FreeKitchenRules.FindMethod(o.productMethod)==null))throw new ArgumentException("Invalid saved product facts");
                 if(o.productId==""&&(o.productName!=""||o.productPriceCents!=0))throw new ArgumentException("Saved product facts without product identity");
+                // New optional snapshots are accepted only when they exactly
+                // reproduce the historical identity, method, recipe and price.
+                if(o.productInputs!=null&&o.productInputs.Length>0)
+                {
+                    if(o.productId==""||o.productSourcePortions<1||o.productSourcePortions!=FreeKitchenRules.DerivePortions(o.productInputs))throw new ArgumentException("Invalid order ingredient provenance");
+                    var seenInputs=new HashSet<string>();var def=FreeKitchenRules.FindMethod(o.productMethod);
+                    foreach(var ingredient in o.productInputs)
+                        if(ingredient==null||ingredient.units<1||ingredient.units>64||!seenInputs.Add(ingredient.itemId)||!FreeKitchenRules.MethodAcceptsMaterial(def,ingredient.itemId))throw new ArgumentException("Invalid order ingredient snapshot");
+                    int matchedOrder=FreeKitchenRules.MatchRecipe(o.productInputs,o.productMethod,o.productSourcePortions);
+                    string expectedName=matchedOrder>=0?Recipes[matchedOrder].name:FreeKitchenRules.LegacyComposeName(o.productInputs,o.productMethod);
+                    if(o.productName!=expectedName||o.productPriceCents!=FreeKitchenRules.FairPriceCents(o.productInputs,o.productSourcePortions,matchedOrder)||o.recipeIndex!=(matchedOrder>=0?matchedOrder:FreeKitchenRules.VisualRecipeIndex(o.productMethod)))throw new ArgumentException("Order ingredient snapshot drift");
+                }
+                else if(o.productSourcePortions!=0)throw new ArgumentException("Order portions without ingredient snapshot");
                 if(o.servedFlavorId!=""&&!StallFlavorMenu.IsFlavor(o.servedFlavorId))throw new ArgumentException("Unknown served flavor");
                 if(o.requestedFlavorId!=""&&!StallFlavorMenu.IsFlavor(o.requestedFlavorId))throw new ArgumentException("Unknown requested flavor");
                 // 实际加上的风味必须与点单一致且真的兼容该菜系（Serve 代码路径也只能
@@ -672,7 +689,7 @@ namespace Guochao
             var keys=new HashSet<string>();foreach(var input in product.inputs)if(input==null||input.units<1||input.units>64||!keys.Add(input.itemId)||!FreeKitchenRules.MethodAcceptsMaterial(method,input.itemId))throw new ArgumentException("Invalid product inputs");
             int matched=FreeKitchenRules.MatchRecipe(product.inputs,product.method,product.sourcePortions);
             int visual=matched>=0?matched:FreeKitchenRules.VisualRecipeIndex(product.method);
-            string name=matched>=0?Recipes[matched].name:FreeKitchenRules.ComposeName(product.inputs,product.method);
+            string name=matched>=0?Recipes[matched].name:FreeKitchenRules.LegacyComposeName(product.inputs,product.method);
             if(matched!=product.matchedRecipeIndex||visual!=product.visualRecipeIndex||name!=product.name
                 ||product.priceCents!=FreeKitchenRules.FairPriceCents(product.inputs,product.sourcePortions,matched))throw new ArgumentException("Product identity or price drift");
             var packages=FreeKitchenRules.PackagesFor(product.method);
@@ -776,7 +793,7 @@ namespace Guochao
         }
         public static string Name(string id)
         {
-            switch(id){case "rice":return "米面";case "egg":return "蛋菜";case "meat":return "鲜肉海鲜";case "dough":return "饼胚";case "skewer":return "串串半成品";case "prepared":return "料理包";case "fruit":return "茶饮料组";case "seasoning":return "油盐酱料";}
+            switch(id){case "rice":return "米面";case "egg":return "鸡蛋";case "meat":return "鲜肉";case "dough":return "饼胚";case "skewer":return "串串半成品";case "prepared":return "料理包";case "fruit":return "鲜果";case "seasoning":return "油盐酱料";}
             // FLAVOR11：风味瓶库存（份）在缺货提示里显示中文名。
             if(StallFlavorMenu.IsFlavor(id))return StallFlavorMenu.Find(id).name;
             return id=="RiceBucket"?"保温饭桶":CharacterCatalog.EquipmentName(id);
@@ -1043,13 +1060,13 @@ namespace Guochao
                 // FREEDOM19 散客：只来自真实供应（柜台餐/锅内成品），点菜即拷贝稳定成品事实。
                 var product=counterMeal.product;
                 var walkOrder=new StallOrder{id=++orderSerial,recipeIndex=product.visualRecipeIndex,patience=patience,maxPatience=patience,spawnedAt=Elapsed,customer=names[(orderSerial-1)%names.Length],
-                    productId=product.id,productName=product.name,productMethod=product.method,productFamily=product.family,productPriceCents=product.priceCents,requestedFlavorId=counterMeal.flavorId};
+                    productId=product.id,productName=product.name,productMethod=product.method,productFamily=product.family,productPriceCents=product.priceCents,productInputs=CloneInputs(product.inputs),productSourcePortions=product.sourcePortions,requestedFlavorId=counterMeal.flavorId};
                 Orders.Add(walkOrder);Revision++;return;
             }
             if(picked is FoodProduct walkProduct)
             {
                 var walkOrder=new StallOrder{id=++orderSerial,recipeIndex=walkProduct.visualRecipeIndex,patience=patience,maxPatience=patience,spawnedAt=Elapsed,customer=names[(orderSerial-1)%names.Length],
-                    productId=walkProduct.id,productName=walkProduct.name,productMethod=walkProduct.method,productFamily=walkProduct.family,productPriceCents=walkProduct.priceCents};
+                    productId=walkProduct.id,productName=walkProduct.name,productMethod=walkProduct.method,productFamily=walkProduct.family,productPriceCents=walkProduct.priceCents,productInputs=CloneInputs(walkProduct.inputs),productSourcePortions=walkProduct.sourcePortions};
                 Orders.Add(walkOrder);Revision++;return;
             }
             int chosen=(int)picked;
@@ -1309,11 +1326,11 @@ namespace Guochao
                 var product=lane.freeBatch.product;
                 if(product==null)return Reject("成品出锅后才能选风味。");
                 if((lane.step!=KitchenStep.Season&&lane.step!=KitchenStep.Pack&&lane.step!=KitchenStep.ReadyStock)||lane.remaining>0)return false;
-                if(!FreeKitchenRules.FlavorCompatible(product,flavorId))return Reject(StallFlavorMenu.Find(flavorId).name+"不适合"+product.name+"。");
+                if(!FreeKitchenRules.FlavorCompatible(product,flavorId))return Reject(StallFlavorMenu.Find(flavorId).name+"不适合"+product.DisplayName+"。");
                 if(Count(flavorId)<=0)return Reject(StallFlavorMenu.Find(flavorId).name+"已经用完 · 先补货");
                 if(lane.step!=KitchenStep.Pack&&!ActionFreeLane(lane))return false;
                 lane.pendingFlavorId=flavorId;Revision++;
-                Message=product.name+"已加"+StallFlavorMenu.Find(flavorId).name;
+                Message=product.DisplayName+"已加"+StallFlavorMenu.Find(flavorId).name;
                 return true;
             }
             if(lane.step!=KitchenStep.Season||lane.remaining>0)return false;
