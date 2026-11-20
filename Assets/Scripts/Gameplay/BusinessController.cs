@@ -183,6 +183,7 @@ namespace Guochao
                 {SelectedOrderId=-1;InteractionChanged?.Invoke();}
             }
             TickCounterSelection();
+            Stage?.SetHighlightedBicycle(ResolveHighlightedBikeIndex());
             HUD?.Refresh(paused);
             if(Session.Finished&&!settled)PublishSettlement();
         }
@@ -225,6 +226,28 @@ namespace Guochao
         }
         public void ShowInteractionHint(string value)
         {InteractionHint=value;hintRemaining=3.2f;InteractionChanged?.Invoke();}
+        public string BikeBlockedStatusText=>StreetStallStage.FormatBikeBlockedStatus(Session);
+        public bool MoveBlockedBike(int index)
+        {
+            if(!CanInteract||index<0||index>=StreetStallStage.BlockedBikeCount)return false;
+            if(!Session.TryMoveBike(index))return false;
+            Stage?.RefreshBlockedBicycles(Session);
+            Stage?.SetHighlightedBicycle(ResolveHighlightedBikeIndex());
+            ShowInteractionHint(Session.BikeBlocked?StreetStallStage.FormatBikeBlockedStatus(Session):"单车已全部挪开 · 客流恢复正常");
+            HUD?.Refresh(IsPaused);
+            return true;
+        }
+        public string DescribeBicycleHint(StallInteractionTarget target)
+        {
+            if(target==null||target.kind!=StallInteractionKind.Bicycle)return "";
+            string status=StreetStallStage.FormatBikeBlockedStatus(Session);
+            return status!=""?"共享单车"+(target.lane+1)+" · "+status:"共享单车"+(target.lane+1)+" · 点击挪开";
+        }
+        private int ResolveHighlightedBikeIndex()
+        {
+            StallInteractionTarget target=InputHandler!=null?(InputHandler.Hovered??InputHandler.FocusedTarget):null;
+            return target!=null&&target.isActiveAndEnabled&&target.kind==StallInteractionKind.Bicycle?target.lane:-1;
+        }
         private void OnWorkFailed(string reason){ShowInteractionHint("操作没有完成 · 钱货没有重复扣除，请重新选择物件");}
         private bool InteractionRejected(string message){ShowInteractionHint(message);return false;}
         // COUNTER19 兼容入口（旧档/旧 UI）：只移动工具焦点，绝不代表"已选顾客"。

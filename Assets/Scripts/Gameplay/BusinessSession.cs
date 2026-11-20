@@ -45,11 +45,15 @@ namespace Guochao
         public bool acceptingOrders;
         public bool started,finished,paused,opening,settlementPublished,cashConserved,packagesConserved,nonNegativeInventory,nonNegativeEnergy,cameraActive,canReturnMarket;
         public int arrivalAttempts,queueTurnaways,soldOutArrivals;
-        public int unseasonedPortionsServed,integrityChange;
+        public int unseasonedPortionsServed,integrityChange,emergencyPackagesUsed,packagingScoreDelta;
         public int seed,randomDraws,orderSerial,initialCashCents,cashCents,revenueCents,served,lost,wastedPortions,gas,cartridge,coal,electricity,gasUsed,cartridgeUsed,coalUsed,electricityUsed,packageUnitsUsed,visibleCustomerActors,walkingCustomerActors,settlementPublications;
         // RISK7：A01 风险收款审计（只增事实计数）。lostRevenueCents=坏账面额累计，
         // 不冲减已实收现金。
         public int riskEventsIssued,riskEventsRecovered,riskEventsLost,lostRevenueCents;
+        // B05：共享单车堵摊审计状态（独立于 A01 债权计数）。
+        public bool bikeBlockActive,bikeBlockTriggered;
+        public int bikeBlockRemaining;
+        public float bikeBlockPollRemaining,customerArrivalRateMultiplier;
         public float elapsed,remaining,duration,nextCustomerSeconds,customerIntervalSeconds,lastOrderAt,clearDownSeconds;
         public int patienceMinSeconds,patienceMaxSeconds;
         public string[] selectedRecipes,equipment,selectedTraits;
@@ -93,6 +97,7 @@ namespace Guochao
         // 重放 SaleCompleted 时不丢。旧档三字段缺省 0，由 Restore 迁移补齐。
         public int paidCents,riskSerial;
         public bool shortSeasoning;
+        public bool emergencyPackage; // 旧档默认 false，真实售出的备用袋事实
         // FLAVOR11：requestedFlavorId=顾客点单时指定的风味（""=原味、不加价）。
         // 缺省 "" 保证旧档/旧 JSON 天然兼容。仅在玩家真实选瓶且与点单一致时才
         // 在递餐帧扣 1 份风味并加价；servedFlavorId=本单实际加上的风味（收据用）。
@@ -319,6 +324,8 @@ namespace Guochao
                 heldMeal=BusinessSaveData.CopyMeal(HeldMeal),heldMealPresent=HeldMeal!=null,
                 risk=RiskState.Capture(),paymentVersion=BusinessSaveData.PaymentVersion3,
                 lostRevenueCents=LostRevenueCents,riskEventsIssued=RiskEventsIssued,riskEventsRecovered=RiskEventsRecovered,riskEventsLost=RiskEventsWrittenOff,
+                bikeBlockVersion=BusinessSaveData.BikeBlockVersion1,bikeBlockActive=bikeBlockActive,bikeBlockTriggered=bikeBlockTriggered,
+                bikeBlockRemaining=bikeBlockRemaining,bikeBlockMask=bikeBlockMask,bikeBlockPollRemaining=bikeBlockPollRemaining,
                 started=Started,finished=Finished,servicePhase=ServicePhase,elapsed=Elapsed,nextCustomer=nextCustomer,message=Message};
         }
         // Unity serializes inline null custom classes as empty objects. Presence markers
@@ -407,6 +414,8 @@ namespace Guochao
             // RISK7：风险运行状态与业务档同一生命周期。旧档 risk=null → 空状态迁移；
             // 非法/NaN/负数/孤儿债权由 StallRiskState.Restore 明确拒绝，不吞校验。
             result.RiskState=StallRiskState.Restore(data.risk,setup.seed);
+            // B05：恢复共享单车堵摊状态；v0 旧档迁移为未触发/未激活/20s 轮询就绪。
+            result.RestoreBikeBlockSave(data);
             // The only random entry point in this model is NextDouble. Replaying
             // its count restores the stream without generating a customer/order.
             for(int i=0;i<data.randomDraws;i++)result.random.NextDouble();result.randomDraws=data.randomDraws;
@@ -556,6 +565,7 @@ namespace Guochao
                 // 产生这种组合），防止手工构造的存档给 incompatible 菜品塞加价。
                 if(o.servedFlavorId!=""&&(o.servedFlavorId!=o.requestedFlavorId
                     ||(o.productId!=""?!FreeKitchenRules.FlavorCompatible(new FoodProduct{family=o.productFamily},o.servedFlavorId):!StallFlavorMenu.Compatible(Recipes[o.recipeIndex],o.servedFlavorId))))throw new ArgumentException("Saved served flavor does not match order");
+                if(o.emergencyPackage&&(!o.served||o.productId==""))throw new ArgumentException("Invalid emergency package sale fact");
                 if(o.served)
                 {
                     collected+=o.paidCents;
@@ -570,6 +580,7 @@ namespace Guochao
             if(collected!=d.revenueCents)throw new ArgumentException("Saved revenue does not match collected order payments");
             if(d.risk==null&&(d.lostRevenueCents!=0||d.riskEventsIssued!=0||d.riskEventsRecovered!=0||d.riskEventsLost!=0))throw new ArgumentException("Risk counters without risk state");
             if(d.risk!=null&&d.riskEventsIssued!=d.risk.serial)throw new ArgumentException("Risk issued counter does not match risk state");
+            ValidateBikeBlockSave(d);
             foreach(var lane in d.lanes)if(lane!=null&&lane.prepaidSeasoning<0)throw new ArgumentException("Negative prepaid seasoning");
         }
         // FREEDOM19：自由批次的存档结构校验——合法身份、有限非负、深拷贝形状、
@@ -651,7 +662,7 @@ namespace Guochao
             if(product.packages==null||product.packages.Length==0)throw new ArgumentException("Saved meal product without packages");
             foreach(string package in product.packages)if(string.IsNullOrEmpty(package)||package.Length>8)throw new ArgumentException("Invalid saved meal product package");
             ValidateProductFacts(product);
-            if(Array.IndexOf(product.packages,meal.packageId)<0||meal.priceCents!=product.priceCents+StallFlavorMenu.MarkupFor(meal.flavorId)
+            if((meal.packageId!=EmergencyBagId&&Array.IndexOf(product.packages,meal.packageId)<0)||meal.priceCents!=product.priceCents+StallFlavorMenu.MarkupFor(meal.flavorId)
                 ||meal.flavorId!=""&&!FreeKitchenRules.FlavorCompatible(product,meal.flavorId))throw new ArgumentException("Saved meal quote or flavor mismatch");
         }
         static void ValidateProductFacts(FoodProduct product)
@@ -837,7 +848,7 @@ namespace Guochao
             // MinMenuToOpen=1，菜单只有一道时不越界、照样开摊。
             Lanes=new KitchenLane[MaxLanes];
             for(int i=0;i<Lanes.Length;i++)Lanes[i]=new KitchenLane{index=i,recipeIndex=SelectedRecipes.Count>0?SelectedRecipes[Mathf.Min(i,SelectedRecipes.Count-1)]:0,step=KitchenStep.Idle};
-            nextCustomer=.8f;Message="先备菜，装好拿起；可以直接递餐，也可以放到取餐区。";UpdateServicePhase();Revision++;return true;
+            nextCustomer=.8f;ResetBikeBlockForOpen();Message="先备菜，装好拿起；可以直接递餐，也可以放到取餐区。";UpdateServicePhase();Revision++;return true;
         }
         public void Tick(float dt)
         {
@@ -917,7 +928,8 @@ namespace Guochao
                 }
                 Revision++;
             }
-            if(AcceptingOrders)nextCustomer-=dt;
+            if(AcceptingOrders)TickBikeBlock(dt);
+            if(AcceptingOrders)nextCustomer-=dt*CustomerArrivalRateMultiplier;
             if(AcceptingOrders&&nextCustomer<=0)
             {
                 SpawnOrder();
@@ -998,7 +1010,8 @@ namespace Guochao
             // 多个同时在等的订单超卖；没有兼容包材的成品不进池。
             int PendingForProduct(string productId,string flavor){int n=0;foreach(var o in Orders)if(o.productId==productId&&(o.requestedFlavorId??"")==flavor&&!o.served&&!o.departed)n++;return n;}
             int PackedCount(string productId,string flavor){int n=0;foreach(var meal in PackedMeals())if(meal.product!=null&&meal.product.id==productId&&(meal.flavorId??"")==flavor)n++;return n;}
-            bool PackAvailable(FoodProduct p){foreach(string pk in p.packages)if(Count(pk)>0)return true;return false;}
+            // An emergency wrapper is available after a real cooked portion exists.
+            bool PackAvailable(FoodProduct p){foreach(string pk in p.packages)if(Count(pk)>0)return true;return CanUseEmergencyBag(p);}
             var pool=new List<KeyValuePair<float,object>>();
             foreach(int index in menu)pool.Add(new KeyValuePair<float, object>(DistrictWeight(index),index));
             foreach(var lane in Lanes)
@@ -1400,7 +1413,7 @@ namespace Guochao
         // 破坏本次 Serve：返回 null = 走正常成交。
         private StallRiskGateDecision InvokeServeRiskGate(int orderId,int recipeIndex,int priceCents)
         {
-            if(ServeRiskGate==null||RiskState==null)return null;
+            if(ServeRiskGate==null||RiskState==null||HasActiveBikeBlock)return null;
             StallRiskGateDecision gate;
             try{gate=ServeRiskGate(orderId,recipeIndex,priceCents);}
             catch(Exception error){Debug.LogError("ServeRiskGate threw; sale proceeds as normal: "+error);return null;}
@@ -1497,8 +1510,10 @@ namespace Guochao
         public void Close()
         {
             if(Finished)return;Finished=true;UpdateServicePhase();
+            bool hadBikeBlock=ClearBikeBlockStateOnly();
             foreach(var order in Orders)if(!order.served&&!order.departed){order.departed=true;order.finishedAt=Elapsed;order.departureReason="closing";ReleaseOrderReservation(order.id);Lost++;}
             Message="今日收摊，核对营收与剩余原料。";Revision++;
+            if(hadBikeBlock)PublishBikeBlockCleared(true);
         }
         private static void AddCount(Dictionary<int,int> counts,int key,int n){counts[key]=(counts.TryGetValue(key,out int old)?old:0)+n;}
         private static int ReadCount(Dictionary<int,int> counts,int key)=>counts.TryGetValue(key,out int n)?n:0;
@@ -1536,6 +1551,8 @@ namespace Guochao
                 int made=ReadCount(portionsStarted,recipe)+ReadCount(freePortionsStarted,recipe),waste=ReadCount(portionsWasted,recipe)+ReadCount(freePortionsWasted,recipe);
                 production.Add(new BusinessRecipeAudit{recipe=Recipes[recipe].id,batches=ReadCount(batchesStarted,recipe)+ReadCount(freeBatchesStarted,recipe),portionsStarted=made,served=served,wasted=waste,remaining=left,portionsConserved=made==served+waste+left});
             }
+            int emergencyOnHand=0;foreach(var meal in PackedMeals())if(meal.packageId==EmergencyBagId)emergencyOnHand++;
+            int emergencyUsed=EmergencyPackagesSold+emergencyOnHand;
             var tableAudit=new List<CounterMeal>();foreach(var meal in ReadyMeals)tableAudit.Add(meal.Copy());
             var batchesAudit=new List<FreeKitchenBatch>();foreach(var lane in Lanes)if(lane.freeBatch!=null)batchesAudit.Add(lane.freeBatch.Copy());
             return new BusinessAuditState{readyMeals=tableAudit.ToArray(),heldMeal=BusinessSaveData.CopyMeal(HeldMeal),freeBatches=batchesAudit.ToArray(),scenario=Setup.practice?"day12_practice":"procured_run",phase=Finished?"DaySummary":Started?"Business":"SiteSelection",district=District.name,
@@ -1544,10 +1561,12 @@ namespace Guochao
                 arrivalAttempts=ArrivalAttempts,queueTurnaways=QueueTurnaways,soldOutArrivals=SoldOutArrivals,unseasonedPortionsServed=UnseasonedPortionsServed,integrityChange=IntegrityChange,started=Started,finished=Finished,canReturnMarket=Setup.canReturnMarket&&!Started,seed=Setup.seed,randomDraws=randomDraws,orderSerial=orderSerial,initialCashCents=Mathf.Max(0,Setup.cashCents),cashCents=CashCents,
                 revenueCents=RevenueCents,served=Served,lost=Lost,wastedPortions=WastedPortions,gas=Gas,cartridge=Cartridge,coal=Coal,electricity=Electricity,
                 gasUsed=Mathf.Max(0,Setup.gasPoints)-Gas,cartridgeUsed=Mathf.Max(0,Setup.cartridgePoints)-Cartridge,coalUsed=Mathf.Max(0,Setup.coalPoints)-Coal,electricityUsed=Mathf.Max(0,Setup.electricityPoints)-Electricity,
-                packageUnitsUsed=usedPackages,cashConserved=CashCents==Mathf.Max(0,Setup.cashCents)+RevenueCents,
+                packageUnitsUsed=usedPackages,emergencyPackagesUsed=emergencyUsed,packagingScoreDelta=EmergencyPackagingScore,cashConserved=CashCents==Mathf.Max(0,Setup.cashCents)+RevenueCents,
                 // FREEDOM19：包材去向 = 已成交 + 柜台上仍 packed 的餐（一份一扣，不重复）。
-                packagesConserved=usedPackages==Served+ReadyMeals.Count+(HeldMeal!=null?1:0),nonNegativeInventory=nonnegative,
+                packagesConserved=usedPackages+emergencyUsed==Served+ReadyMeals.Count+(HeldMeal!=null?1:0),nonNegativeInventory=nonnegative,
                 riskEventsIssued=RiskEventsIssued,riskEventsRecovered=RiskEventsRecovered,riskEventsLost=RiskEventsWrittenOff,lostRevenueCents=LostRevenueCents,
+                bikeBlockActive=HasActiveBikeBlock,bikeBlockTriggered=bikeBlockTriggered,bikeBlockRemaining=BikeBlockRemaining,
+                bikeBlockPollRemaining=bikeBlockPollRemaining,customerArrivalRateMultiplier=CustomerArrivalRateMultiplier,
                 nonNegativeEnergy=Gas>=0&&Cartridge>=0&&Coal>=0&&Electricity>=0,elapsed=Elapsed,remaining=Remaining,duration=Setup.dayDuration,nextCustomerSeconds=nextCustomer,
                 customerIntervalSeconds=Setup.customerIntervalSeconds,patienceMinSeconds=Setup.patienceMinSeconds,patienceMaxSeconds=Setup.patienceMaxSeconds,
                 recipeProduction=production.ToArray(),inventory=raw.ToArray(),orders=orders.ToArray(),lanes=lanes.ToArray(),selectedRecipes=selected.ToArray(),equipment=equipment.ToArray()};

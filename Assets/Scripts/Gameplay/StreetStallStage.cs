@@ -51,11 +51,11 @@ namespace Guochao
         private Material cream,forest,foliage,rust,ink,steel,wood,rice,egg,green,sausage,dough,flame,white;
         private float time,cookingHeight=1.22f;
         private Station seasoning;
-        // FLAVOR11：三种可点单风味（S01 街头辣椒油 / S02 现剁蒜蓉 / S05 番茄甜
-        // 辣酱）各自独立的可视瓶与幕后工位。瓶身常驻前缘调料架、真实可点（不
+        // FLAVOR11/13/14：五种可点单风味（S01 街头辣椒油 / S02 现剁蒜蓉 / S05 番茄甜
+        // 辣酱 / S13 黑糖珍珠 / S14 椰果）各自独立的可视瓶与幕后工位。瓶身常驻前缘调料架、真实可点（不
         // 是文字标签），侧面视窗液芯随真实库存伸缩；拿起时隐藏原瓶、手持同款
         // 小瓶走到锅边，接触帧才由 Controller 再验一次并 commit。
-        private static readonly string[] FlavorIds={ "S01", "S02", "S05" };
+        private static readonly string[] FlavorIds={ "S01", "S02", "S05", "S13", "S14" };
         private static readonly Color ChiliRed=new Color(.78f,.10f,.06f),GarlicCream=new Color(.96f,.93f,.82f),SweetOrange=new Color(.95f,.45f,.10f),OilAmber=new Color(.93f,.72f,.20f),JellyBrown=new Color(.45f,.16f,.10f),RosePink=new Color(.86f,.45f,.56f);
         private readonly Dictionary<string,Station> flavorStations=new Dictionary<string,Station>();
         private readonly Dictionary<string,Transform> flavorBottles=new Dictionary<string,Transform>();
@@ -111,7 +111,7 @@ namespace Guochao
             flame=Paint("Gas blue",new Color(.13f,.52f,.97f));flame.SetColor("_EmissionColor",new Color(.02f,.16f,.50f));
             foreach(var def in CharacterAssetCatalog.All)if(def.IsCustomerSource)
             {if(CharacterAssetCatalog.TryLoad(def.Id,out LoadedCharacterAsset asset,out string failure,CharacterMotion.Idle,CharacterMotion.Walk))customerAssets.Add(asset);else Debug.LogWarning(failure);}
-            Environment();BuildCart(setup);BuildCamera();SetLayers(transform);Physics.SyncTransforms();
+            Environment();BuildCart(setup);BuildCamera();BuildBlockedBicycles();SetLayers(transform);Physics.SyncTransforms();
             float navRight=Mathf.Max(7.8f,operatingRight+2.2f),navLeft=-6.2f;
             guestNavigation=new NpcNavigationSpace(new Bounds(new Vector3((navRight+navLeft)*.5f,1,2.4f),new Vector3(navRight-navLeft,3,4.3f)),SolidMask);
             Transform vendorBody=Group("Vendor occupied body",player);vendorBody.gameObject.layer=SolidLayer;var vendorCollider=vendorBody.gameObject.AddComponent<CapsuleCollider>();vendorCollider.radius=.25f;vendorCollider.height=1.61f;vendorCollider.center=Vector3.up*.845f;
@@ -249,11 +249,13 @@ namespace Guochao
             Shape("Sauce tray",condiments,Vector3.zero,new Vector3(.92f,.035f,.36f),steel);
             // FLAVOR11：风味瓶挂在前缘小架上，摊主站在前排（z=-.97）即可真实
             // 够到，与基础油盐瓶（前方工作槽）互不遮挡。
-            Shape("Front flavor shelf",cooking,new Vector3(1.97f,.985f,-.40f),new Vector3(.96f,.035f,.30f),steel);
-            SolidBox("Front flavor shelf",new Vector3(1.97f,.985f,-.40f),new Vector3(.96f,.035f,.30f));
+            // FLAVOR13/14：五瓶一排摆到 x 1.16–2.12，调味架同步加宽到 1.14 m——左让基础油盐
+            // 瓶点击区（x≤1.025），右离包材架点击区（x≥2.525）约 .29 m，不与灶（z≈0±.25）重叠。
+            Shape("Front flavor shelf",cooking,new Vector3(1.64f,.985f,-.40f),new Vector3(1.14f,.035f,.30f),steel);
+            SolidBox("Front flavor shelf",new Vector3(1.64f,.985f,-.40f),new Vector3(1.14f,.035f,.30f));
             for(int i=0;i<FlavorIds.Length;i++)
             {
-                string flavor=FlavorIds[i];float x=1.70f+i*.27f;
+                string flavor=FlavorIds[i];float x=1.16f+i*.24f; // 五瓶步距 .24：整排 x 1.16–2.12，避开油盐瓶与包材架
                 Transform bottle=BuildFlavorBottle(flavor,cooking,new Vector3(x,1.005f,-.44f),true);
                 flavorBottles[flavor]=bottle;
                 Station station=MakeStation(new Vector3(x,1.18f,-.60f),new Vector3(x,0,-.97f),false);
@@ -282,6 +284,12 @@ namespace Guochao
                 packages[id]=MakeStation(pack.position+new Vector3(0,.14f,-.10f),new Vector3(pack.position.x,0,-1.08f),true);
                 Target(pack,StallInteractionKind.Packaging,id,-1,pack.position+new Vector3(0,.04f,-.18f),new Vector3(.39f,.29f,.37f));pk++;
             }
+            // Emergency stock is not a purchasable item. It has a separate, always
+            // reachable physical pickup station; the game never inserts it into Inventory.
+            Transform emergency=Group("Emergency bag reserve",cooking);
+            emergency.position=new Vector3(2.72f+pk*.48f,1.01f,-.62f);
+            Shape("Emergency thin bag stack",emergency,new Vector3(0,.03f,0),new Vector3(.23f,.07f,.16f),cream);
+            packages[BusinessSession.EmergencyBagId]=MakeStation(emergency.position+new Vector3(0,.14f,-.10f),new Vector3(emergency.position.x,0,-1.08f),true);
             if(pk>0)
             {
                 float width=.50f+.48f*(pk-1),mid=2.72f+.24f*(pk-1);
@@ -408,14 +416,15 @@ namespace Guochao
                 BoxCollider box=mesh.gameObject.AddComponent<BoxCollider>();box.center=mesh.sharedMesh.bounds.center;box.size=mesh.sharedMesh.bounds.size;
             }
         }
-        // 三种风味瓶的真实造型，彼此一眼可辨：
+        // 五种风味瓶的真实造型，彼此一眼可辨：
         // S01 辣椒油=红色玻璃瓶+琥珀浮油层+底部辣椒沉淀+软木塞；
         // S02 蒜蓉=乳白粗瓷罐+隆起粗颗粒蒜茸+斜靠木柄小刷；
-        // S05 甜辣酱=橙色挤压瓶+尖嘴翻盖。余量由侧面视窗液芯伸缩表达
+        // S05 甜辣酱=橙色挤压瓶+尖嘴翻盖；S13 黑糖珍珠=琥珀矮罐+黑糖糖浆+沉底珍珠；
+        // S14 椰果=浅色透明玻璃罐+白色椰果方块。余量由侧面视窗液芯伸缩表达
         // （随 Present 里 session.Count(flavor) 更新，空瓶一目了然）。
         private Transform BuildFlavorBottle(string flavor,Transform parent,Vector3 at,bool withGauge)
         {
-            Material body=flavor=="S01"?Paint("Chili oil red glass",ChiliRed,.55f):flavor=="S02"?Paint("Garlic cream ceramic",GarlicCream,.2f):Paint("Sweet chili orange bottle",SweetOrange,.35f);
+            Material body=flavor=="S01"?Paint("Chili oil red glass",ChiliRed,.55f):flavor=="S02"?Paint("Garlic cream ceramic",GarlicCream,.2f):flavor=="S13"?Paint("Boba amber glass",new Color(.42f,.20f,.08f),.6f):Paint("Sweet chili orange bottle",SweetOrange,.35f);
             Transform bottle=Group("Flavor bottle "+flavor,parent);bottle.position=at;
             Transform generatedFlavor=Group("Generated flavor visual",bottle);
             bool generated=(flavor=="S01"||flavor=="S02")&&GeneratedEquipmentAssets.TryPopulate(flavor,generatedFlavor);
@@ -443,6 +452,24 @@ namespace Guochao
                 Shape("Brush ferrule",brush,new Vector3(0,.148f,0),new Vector3(.024f,.02f,.024f),steel,PrimitiveType.Cylinder);
                 Shape("Brush bristles",brush,new Vector3(0,.175f,0),new Vector3(.026f,.032f,.026f),cream,PrimitiveType.Cylinder);
             }
+            else if(flavor=="S13")
+            {
+                // 黑糖珍珠：矮身琥珀玻璃罐，黑糖糖浆里沉底的珍珠颗粒一眼可辨（纯程序 primitive）。
+                Shape("Boba glass jar",bottle,new Vector3(0,.055f,0),new Vector3(.09f,.11f,.09f),body,PrimitiveType.Cylinder);
+                Shape("Brown sugar syrup",bottle,new Vector3(0,.032f,0),new Vector3(.088f,.060f,.088f),JellySyrup,PrimitiveType.Cylinder);
+                var pearls=new System.Random(13);for(int i=0;i<10;i++){float a=(float)pearls.NextDouble()*Mathf.PI*2,r=.008f+(float)pearls.NextDouble()*.024f;Shape("Tapioca pearl",bottle,new Vector3(Mathf.Sin(a)*r,.012f+(float)pearls.NextDouble()*.018f,Mathf.Cos(a)*r),new Vector3(.013f,.011f,.013f),ink,PrimitiveType.Sphere);}
+                Shape("Boba jar shoulder",bottle,new Vector3(0,.116f,0),new Vector3(.055f,.024f,.055f),body,PrimitiveType.Cylinder);
+                Shape("Boba jar lid",bottle,new Vector3(0,.133f,0),new Vector3(.058f,.016f,.058f),cream,PrimitiveType.Cylinder);
+                Shape("Boba paper label",bottle,new Vector3(0,.050f,0),new Vector3(.092f,.035f,.092f),cream,PrimitiveType.Cylinder);
+            }
+            else if(flavor=="S14")
+            {
+                // 椰果：浅色透明玻璃罐，白色椰果方块浮在清糖浆里，与黑糖罐明显区分（纯程序 primitive）。
+                Shape("Nata glass jar",bottle,new Vector3(0,.060f,0),new Vector3(.085f,.12f,.085f),IcePale,PrimitiveType.Cylinder);
+                Shape("Clear syrup",bottle,new Vector3(0,.040f,0),new Vector3(.082f,.075f,.082f),IcePale,PrimitiveType.Cylinder);
+                var cubes=new System.Random(14);for(int i=0;i<9;i++){float a=(float)cubes.NextDouble()*Mathf.PI*2,r=.006f+(float)cubes.NextDouble()*.024f;Shape("Coconut jelly cube",bottle,new Vector3(Mathf.Sin(a)*r,.020f+(float)cubes.NextDouble()*.050f,Mathf.Cos(a)*r),new Vector3(.015f,.013f,.015f),white);}
+                Shape("Nata jar lid",bottle,new Vector3(0,.128f,0),new Vector3(.056f,.018f,.056f),cream,PrimitiveType.Cylinder);
+            }
             else
             {
                 Shape("Squeeze bottle body",bottle,new Vector3(0,.06f,0),new Vector3(.07f,.12f,.07f),body,PrimitiveType.Cylinder);
@@ -454,14 +481,24 @@ namespace Guochao
             }
             if(withGauge)
             {
-                float radius=generated?.095f:flavor=="S02"?.085f:flavor=="S01"?.075f:.07f;
+                float radius=generated?.095f:flavor=="S02"?.085f:flavor=="S01"?.075f:flavor=="S13"?.045f:flavor=="S14"?.043f:.07f;
                 float bottom=.02f,top=flavor=="S02"?.085f:.105f;
-                Material fillMat=flavor=="S01"?Paint("Chili oil fill",new Color(.60f,.05f,.03f),.6f):flavor=="S02"?Paint("Garlic fill",new Color(.93f,.90f,.78f),.3f):Paint("Sweet chili fill",new Color(.88f,.38f,.07f),.4f);
+                Material fillMat=flavor=="S01"?Paint("Chili oil fill",new Color(.60f,.05f,.03f),.6f):flavor=="S02"?Paint("Garlic fill",new Color(.93f,.90f,.78f),.3f):flavor=="S13"?JellySyrup:flavor=="S14"?IcePale:Paint("Sweet chili fill",new Color(.88f,.38f,.07f),.4f);
                 Shape("Sight glass back",bottle,new Vector3(radius+.005f,(bottom+top)*.5f,0),new Vector3(.014f,top-bottom,.010f),cream);
                 Transform fill=Group("Visible remaining "+flavor,bottle);fill.localPosition=new Vector3(radius+.005f,bottom,0);
                 fill.localScale=new Vector3(.009f,.004f,.006f);
                 Shape("Fill strip",fill,Vector3.zero,Vector3.one,fillMat,PrimitiveType.Cube);
                 flavorFills[flavor]=new FillGauge{node=fill,bottom=bottom,fullHeight=top-bottom};
+            }
+            // 三个原始程序造型较矮，在 720p 时仅有几个像素。只放大瓶身和
+            // 余量窗，保留瓶位、工作站及原有 .23m 点击盒，避免抢相邻工位。
+            if(flavor=="S05"||flavor=="S13"||flavor=="S14")
+            {
+                const float visualScale=1.45f;
+                foreach(Transform part in bottle)
+                {part.localPosition*=visualScale;part.localScale*=visualScale;}
+                if(withGauge&&flavorFills.TryGetValue(flavor,out FillGauge gauge))
+                {gauge.bottom*=visualScale;gauge.fullHeight*=visualScale;}
             }
             SetLayers(bottle);
             return bottle;
@@ -1126,12 +1163,15 @@ namespace Guochao
                 if(i<eggPrepGroups.Count)eggPrepGroups[i].gameObject.SetActive(lane.eggPrepPortions>0);
                 for(int s=0;s<3;s++){Transform puff=steam[i*3+s];puff.gameObject.SetActive(heat);if(paused)continue;float t=(time*.65f+s/3f)%1;puff.localPosition=new Vector3(Mathf.Sin(t*5+s)*.07f,.18f+t*.45f,Mathf.Cos(t*4+s)*.05f);puff.localScale=new Vector3(.025f+t*.035f,.04f+t*.06f,.025f+t*.035f);}
             }
-            // FLAVOR11：风味瓶视窗液芯跟随真实库存（S01/S05 满瓶 40 份、S02 30 份，
-            // 与采购B表份数一致）；库存为 0 时液芯只剩一条底痕。
+            // FLAVOR11/13/14：风味瓶视窗液芯跟随真实库存；满瓶份数统一从
+            // StallFlavorMenu.portionsPerBottle 读取（不为任何风味写死），与采购份数一致；
+            // 库存为 0 时液芯只剩一条底痕。
             foreach(var pair in flavorFills)
             {
                 int stock=activeSession!=null?activeSession.Count(pair.Key):0;
-                float frac=Mathf.Clamp01(stock/(pair.Key=="S02"?30f:40f));
+                StallFlavor flavorDef=StallFlavorMenu.Find(pair.Key);
+                float fullPortions=flavorDef!=null&&flavorDef.portionsPerBottle>0?flavorDef.portionsPerBottle:40f;
+                float frac=Mathf.Clamp01(stock/fullPortions);
                 float h=Mathf.Max(.004f,pair.Value.fullHeight*frac);
                 pair.Value.node.localScale=new Vector3(.009f,h,.006f);
                 pair.Value.node.localPosition=new Vector3(pair.Value.node.localPosition.x,pair.Value.bottom+h*.5f,0);
@@ -1139,6 +1179,7 @@ namespace Guochao
             UpdateStockDisplays(session);
             RefreshCounterMeals(session);
             RestoreHeldMealVisual(session);
+            RefreshBlockedBicycles(session);
         }
         private NpcDepartureState DepartureState(int id)
         {
@@ -1206,7 +1247,7 @@ namespace Guochao
         }
         public void Release()
         {
-            if(released)return;released=true;CancelAllCustomerPickups();if(workActor)workActor.Cancel();sequenceBusy=false;ClearHeldProp();
+            if(released)return;released=true;CancelAllCustomerPickups();if(workActor)workActor.Cancel();sequenceBusy=false;ClearHeldProp();ReleaseBlockedBicycles();
             if(activeSession!=null){activeSession.SaleCompleted-=OnSaleCompleted;activeSession=null;}
             if(View)View.enabled=false;if(oldCamera)oldCamera.enabled=oldCameraEnabled;
             foreach(Light light in oldLights)if(light)light.enabled=true;

@@ -2,9 +2,9 @@ using UnityEngine;
 
 namespace Guochao
 {
-    // 旧五项数值保持不变；Serving=打包入出餐台的实物入口，CounterMeal=台面上
-    // 一份已装盒成品（target.itemId 保存真实 meal id）。
-    public enum StallInteractionKind { Order, Ingredient, Cookware, Seasoning, Packaging, Serving, CounterMeal }
+    // 旧七项数值保持不变；Serving=打包入出餐台的实物入口，CounterMeal=台面上
+    // 一份已装盒成品（target.itemId 保存真实 meal id），Bicycle=B05 堵摊共享单车（target.lane 为单车索引 0/1）。
+    public enum StallInteractionKind { Order, Ingredient, Cookware, Seasoning, Packaging, Serving, CounterMeal, Bicycle }
 
     // Attached to a real scene object, above its hit collider. Presentation and
     // pointer input share this address; neither owns inventory or cooking state.

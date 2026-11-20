@@ -38,6 +38,7 @@ namespace Guochao
                 case StallInteractionKind.Packaging:return 22f;
                 case StallInteractionKind.Serving:return 26f;
                 case StallInteractionKind.CounterMeal:return 24f;
+                case StallInteractionKind.Bicycle:return 24f;
                 default:return 20f;
             }
         }
@@ -165,6 +166,7 @@ namespace Guochao
             if(Input.GetMouseButtonDown(1)||Input.GetKeyDown(KeyCode.JoystickButton1)){CancelPackage();owner.ShowInteractionHint("已放回包材");}
             if(Input.GetKeyDown(KeyCode.Tab)||Input.GetKeyDown(KeyCode.JoystickButton5)||Input.GetKeyDown(KeyCode.JoystickButton4))
                 CycleFocus(Input.GetKey(KeyCode.LeftShift)||Input.GetKey(KeyCode.RightShift)||Input.GetKeyDown(KeyCode.JoystickButton4)?-1:1);
+            if(FocusedTarget!=null&&!FocusedTarget.isActiveAndEnabled)FocusedTarget=null;
             bool uiFocus=EventSystem.current!=null&&EventSystem.current.currentSelectedGameObject!=null;
             if(FocusedTarget!=null&&!uiFocus&&(Input.GetKeyDown(KeyCode.Return)||Input.GetKeyDown(KeyCode.KeypadEnter)||Input.GetKeyDown(KeyCode.JoystickButton0)))Activate(FocusedTarget);
             bool overUI=IsScreenPointOverUI(Input.mousePosition);
@@ -246,7 +248,7 @@ namespace Guochao
             targets.Sort((a,b)=>a.kind!=b.kind?a.kind.CompareTo(b.kind):a.kind==StallInteractionKind.Order?a.orderId.CompareTo(b.orderId):a.lane!=b.lane?a.lane.CompareTo(b.lane):string.CompareOrdinal(a.itemId,b.itemId));
             if(targets.Count==0)return;int index=targets.IndexOf(FocusedTarget);index=(index+direction+targets.Count)%targets.Count;FocusedTarget=targets[index];
             if(EventSystem.current!=null)EventSystem.current.SetSelectedGameObject(null);
-            string name=FocusedTarget.kind==StallInteractionKind.Order?"顾客订单":FocusedTarget.kind==StallInteractionKind.Cookware?(FocusedTarget.lane+1)+"号锅":FocusedTarget.kind==StallInteractionKind.Serving?"出餐台":FocusedTarget.kind==StallInteractionKind.CounterMeal?"台面餐":FocusedTarget.kind==StallInteractionKind.Seasoning?FlavorShortName(FocusedTarget.itemId):BusinessWorldHUD.ShortItem(FocusedTarget.itemId);
+            string name=FocusedTarget.kind==StallInteractionKind.Order?"顾客订单":FocusedTarget.kind==StallInteractionKind.Cookware?(FocusedTarget.lane+1)+"号锅":FocusedTarget.kind==StallInteractionKind.Serving?"出餐台":FocusedTarget.kind==StallInteractionKind.CounterMeal?"台面餐":FocusedTarget.kind==StallInteractionKind.Bicycle?"共享单车"+(FocusedTarget.lane+1)+"（挪开）":FocusedTarget.kind==StallInteractionKind.Seasoning?FlavorShortName(FocusedTarget.itemId):BusinessWorldHUD.ShortItem(FocusedTarget.itemId);
             owner.ShowInteractionHint(name+" · Enter / 手柄 A 操作 · Tab / 肩键切换");
         }
         // FLAVOR11：基础油盐走原 UseSeasoning(int)（保持默认行为），S01/S02/S05
@@ -258,7 +260,7 @@ namespace Guochao
             else owner.UseSeasoning(lane,flavorId);
         }
         public static string FlavorShortName(string flavorId)
-        {switch(flavorId){case "S01":return "辣椒油";case "S02":return "蒜蓉";case "S05":return "甜辣酱";default:return "油盐";}}
+        {switch(flavorId){case "S01":return "辣椒油";case "S02":return "蒜蓉";case "S05":return "甜辣酱";case "S13":return "黑糖珍珠";case "S14":return "椰果";default:return "油盐";}}
         private void Activate(StallInteractionTarget target)
         {
             switch(target.kind)
@@ -288,6 +290,9 @@ namespace Guochao
                     if(owner.Session.Count(target.itemId)<=0){owner.ShowInteractionHint("这种包材已用完");break;}
                     CarriedPackageId=target.itemId;
                     owner.ShowInteractionHint("已拿起包材 · 点做好菜的锅封装，右键放回");
+                    break;
+                case StallInteractionKind.Bicycle:
+                    owner.MoveBlockedBike(target.lane);
                     break;
             }
         }

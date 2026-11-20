@@ -52,6 +52,8 @@ namespace Guochao
         public float IcdRemaining { get; private set; }
         public float PollRemaining { get; private set; }   // EVENT7R：20s 轮询槽剩余
         public bool CanPoll=>PollRemaining<=0f;
+        public bool IsGlobalIcdActive=>IcdRemaining>0f;
+        public bool IsGlobalIcdReady=>IcdRemaining<=0f;
         public int RandomDraws { get; private set; }
         public bool ForceNextAdoptA01 { get; set; }
         public bool HasActiveEvent=>active!=null;
@@ -75,6 +77,15 @@ namespace Guochao
             if(PollRemaining>0f)return false;
             PollRemaining=StallRiskRules.PollIntervalSeconds;
             return true;
+        }
+
+        // B05 等非债权事件共享 25s 全局冷却：只设置/延长 IcdRemaining，绝不修改
+        // Serial / issued / resolved / active / RandomDraws，不污染 A01 债权与审计。
+        public void StartSharedIcd()=>StartSharedIcd(StallRiskRules.IcdSeconds);
+        public void StartSharedIcd(float seconds)
+        {
+            if(!IsFinite(seconds)||seconds<=0f)throw new ArgumentException("Shared ICD must be a finite positive number of seconds");
+            if(seconds>IcdRemaining)IcdRemaining=seconds;
         }
 
         // 采纳一次 Serve 为风险事件。serial/issued 去重：同一 serial 永不二次发出。

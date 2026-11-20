@@ -283,6 +283,12 @@ namespace Guochao
         {
             Transform shell=Group("Actual package "+packageId,parent);
             float contentHeight=.04f,contentScale=.56f;
+            if(packageId==BusinessSession.EmergencyBagId)
+            {
+                Shape("Emergency plastic bag",shell,new Vector3(0,.07f,0),new Vector3(.20f,.14f,.13f),cream);
+                Shape("Emergency bag handle",shell,new Vector3(0,.16f,0),new Vector3(.10f,.04f,.03f),white);
+                return;
+            }
             if(packageId=="P08"||packageId=="P12")
             {
                 Bowl(shell,.075f,.18f,packageId=="P12"?wood:white);

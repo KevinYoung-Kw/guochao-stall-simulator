@@ -70,9 +70,9 @@ namespace Guochao
             if(source.step!=KitchenStep.Season&&source.step!=KitchenStep.Pack&&source.step!=KitchenStep.ReadyStock)
                 return InteractionRejected("这口锅还没做好 · 熟了再装餐");
             if(Session.ProductAtLane(lane)==null)return InteractionRejected("这口锅还没有能装出的成品");
-            string[] packages=Session.LanePackages(lane);
-            if(string.IsNullOrEmpty(packageId))foreach(string candidate in packages)if(Session.Count(candidate)>0){packageId=candidate;break;}
-            if(string.IsNullOrEmpty(packageId)||Session.Count(packageId)<=0)return InteractionRejected("合用的包材用完了 · 先补货");
+            string[] packages=Session.AvailableLanePackages(lane);
+            if(string.IsNullOrEmpty(packageId))foreach(string candidate in packages)if(candidate==BusinessSession.EmergencyBagId||Session.Count(candidate)>0){packageId=candidate;break;}
+            if(packageId!=BusinessSession.EmergencyBagId&&(string.IsNullOrEmpty(packageId)||Session.Count(packageId)<=0))return InteractionRejected("合用的包材用完了 · 先补货");
             if(Array.IndexOf(packages,packageId)<0)return InteractionRejected("这种包材不适合这份餐");
             if(source.step!=KitchenStep.Season&&!HasPendingSeasoning(lane)&&source.seasoned
                 &&!Session.CanPackToHand(lane,packageId,out string packReason))return InteractionRejected(packReason);
@@ -89,7 +89,9 @@ namespace Guochao
                 Enqueue(new WorkIntent{kind=StallInteractionKind.Seasoning,lane=lane,order=-1,item="seasoning",step=KitchenStep.Season,label="调味"},false);
             var work=new WorkIntent{kind=StallInteractionKind.Serving,fulfilment=FulfilmentWork.Pack,lane=lane,order=-1,item=packageId,
                 step=KitchenStep.Pack,label="装餐拿起",placeAfterPack=placeAfter,batchId=source.freeBatch?.id??"",productId=Session.ProductAtLane(lane)?.id??""};
-            return Enqueue(work,false);
+            bool queued=Enqueue(work,false);
+            if(queued&&packageId==BusinessSession.EmergencyBagId)ShowInteractionHint("合用包材用完 · 使用应急薄袋，售出国潮 −5");
+            return queued;
         }
         public bool PlaceHeldMeal()
         {

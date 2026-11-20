@@ -27,6 +27,9 @@ namespace Guochao
             // independent of the S00 通用油盐酱料大桶 (seasoning), which keeps
             // its own soft-gate shortage rule.
             D("S01","街头辣椒油",800,40),D("S02","现剁蒜蓉",900,30),D("S05","番茄甜辣酱",800,40),
+            // FLAVOR13/14：S13 黑糖珍珠 ¥0.4/份×30=¥12（1200 分）、S14 椰果 ¥0.3/份×30=¥9（900 分），
+            // 与 StallFlavorMenu.bottlePriceCents 完全一致；amount=每瓶份数，走同一整瓶采购口径。
+            D("S13","黑糖珍珠",1200,30),D("S14","椰果",900,30),
             // Bulk loose goods mirror the GameCatalog shelf cartons at the same
             // 1.11x per-portion premium the five existing *_small bags already use
             // (rice 90→100, egg 135→150, meat 315→350, dough 108→120, seasoning

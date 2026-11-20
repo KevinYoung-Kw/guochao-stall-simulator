@@ -46,7 +46,7 @@ namespace Guochao
         private ScrollRect overlayScroll;
         private Text overlayTitle;
         private GameItemIconLibrary overlayIcons;
-        // 固定安全区操作卡：锅具做法/装盒（焦点或选中锅）、选中台面餐详情。
+        // 固定安全区操作卡：锅具做法/装餐（焦点或选中锅）、选中台面餐详情。
         private FixedCard lanePanel,mealCard;
         private string lanePanelKey="",mealCardKey="";
         private readonly Dictionary<Button,bool> disabledForOverlay=new Dictionary<Button,bool>();
@@ -201,7 +201,7 @@ namespace Guochao
                     case KitchenStep.ReadyStock:
                     case KitchenStep.Pack:
                         bool packaging=false, usable=false;
-                        foreach (string id in session.LanePackages(i))
+                        foreach (string id in session.AvailableLanePackages(i))
                         {
                             packaging|=session.Count(id)>0;
                             if (session.CanPackToHand(i,id,out _)){usable=true;break;}
@@ -519,7 +519,7 @@ namespace Guochao
             {
                 // 出餐台实物入口：只打包入台，绝不自动交付。
                 tag.title=Text(rt,"取餐区",new Vector2(0,17),new Vector2(130,30),19,ink,TextAnchor.MiddleCenter);tag.title.fontStyle=FontStyle.Bold;
-                Button pack=Control("装盒上台",rt,new Vector2(120,26),()=>owner.UseServingCounter(tag.target.lane));
+                Button pack=Control("装餐上台",rt,new Vector2(120,26),()=>owner.UseServingCounter(tag.target.lane));
                 ((RectTransform)pack.transform).anchoredPosition=new Vector2(0,-13);
                 pack.GetComponentInChildren<Text>().fontSize=15;
                 tag.button=pack;
@@ -730,7 +730,7 @@ namespace Guochao
                                     lane.remaining.ToString("0.0")+" 秒"+heatNote;
                                 progress=lane.remaining/Mathf.Max(.01f,lane.duration);break;
                             case KitchenStep.Season:title=lane.remaining>0?"盛装 / 沥油":"点调味瓶";detail=lane.remaining>0?lane.remaining.ToString("0.0")+" 秒":session.SeasoningAvailable?"锅内 "+lane.batchRemaining+" 份":"缺油盐 · 仍可出餐";break;
-                            case KitchenStep.Pack:title=freeLane?"可以装盒":"可以打包";detail=freeLane?"选择包材，装好拿起":"把菜拖到盒袋里";break;
+                            case KitchenStep.Pack:title=freeLane?"可以装餐":"可以打包";detail=freeLane?"选择包材，装好拿起":"把菜拖到盒袋里";break;
                             case KitchenStep.ReadyStock:
                                 {var product=session.ProductAtLane(target.lane);
                                 title=product!=null&&product.name!=""?"出锅 · "+product.name:(coldLane?"备好 ":"熟了 ")+lane.batchRemaining+" 份";
@@ -761,27 +761,27 @@ namespace Guochao
                 }
                 else if(target.kind==StallInteractionKind.Serving)
                 {
-                    // 出餐台底座是 lane=-1 的全局入口：综合所有锅，有可装盒的锅
+                    // 出餐台底座是 lane=-1 的全局入口：综合所有锅，有可装餐的锅
                     // 即亮显可点；否则显示真实短原因，不无声不可点。
                     bool held=session.HeldMeal!=null;
                     bool canPack=false;string reason="",rejected="";
                     if(held)canPack=session.CanPlaceHeldMeal(out reason);
                     for(int li=0;!held&&li<session.Lanes.Length;li++)
                     {
-                        foreach(string pkg in session.LanePackages(li))
+                        foreach(string pkg in session.AvailableLanePackages(li))
                             if(session.CanPackToCounter(li,pkg,out rejected)){canPack=true;break;}
                         if(canPack)break;
                         if(reason=="")reason=rejected;
                     }
-                    if(reason=="")reason="暂无成品可装盒";
+                    if(reason=="")reason="暂无成品可装餐";
                     Set(tag.title,"取餐区 · "+session.ReadyMeals.Count+"/6");
                     tag.face.color=canPack||focused?CampaignUI.Selected:paper;
                     tag.button.interactable=canPack&&!paused&&!HasOverlay&&owner.CanInteract;
-                    // 不可装盒时不无声：按钮面直接显示真实短原因。
+                    // 不可装餐时不无声：按钮面直接显示真实短原因。
                     var serveLabel=tag.button.GetComponentInChildren<Text>();
-                    if(serveLabel!=null)Set(serveLabel,canPack?(held?"放下成品":"装盒放下"):session.ReadyMeals.Count>0?"点餐叫客":"待出餐");
+                    if(serveLabel!=null)Set(serveLabel,canPack?(held?"放下成品":"装餐放下"):session.ReadyMeals.Count>0?"点餐叫客":"待出餐");
                     if(focused&&!paused&&!HasOverlay&&owner.InteractionHint=="")
-                    {Set(hint,canPack?(held?"取餐区 · 放下手里的成品":"取餐区 · 装盒并放下"):(session.ReadyMeals.Count>0?"点一份成品，再点顾客，请他来取餐":reason));toast.gameObject.SetActive(true);}
+                    {Set(hint,canPack?(held?"取餐区 · 放下手里的成品":"取餐区 · 装餐并放下"):(session.ReadyMeals.Count>0?"点一份成品，再点顾客，请他来取餐":reason));toast.gameObject.SetActive(true);}
                 }
                 else
                 {
@@ -907,11 +907,54 @@ namespace Guochao
             if(card.choiceLabels[index]!=null){Set(card.choiceLabels[index],label);card.choiceLabels[index].color=current?paper:ink;}
             if(current)b.GetComponent<Image>().color=CampaignUI.Vermilion;
         }
+        // 图标只读取锅里已发生接触的 FoodInput，不显示搬运中的食材。
+        private readonly List<Image> laneItemIcons=new List<Image>();
+        private readonly List<Text> laneItemLabels=new List<Text>();
+        private readonly List<Text> laneItemCounts=new List<Text>();
+        private Text laneEmptyLabel;
         private void BuildLanePanel()
         {
-            Vector2 size=new Vector2(360,196);
+            Vector2 size=new Vector2(420,280);
             lanePanel=BuildFixedCard("Lane operation card",size);
             lanePanel.root.anchorMin=lanePanel.root.anchorMax=new Vector2(1,0);lanePanel.root.pivot=new Vector2(1,0);lanePanel.root.anchoredPosition=new Vector2(-16,110);
+            lanePanel.title.rectTransform.sizeDelta=new Vector2(384,36);
+            lanePanel.detail.rectTransform.sizeDelta=new Vector2(384,94);
+            lanePanel.detail.fontSize=22;
+            Anchor(lanePanel.detail.rectTransform,new Vector2(.5f,1),new Vector2(.5f,1),new Vector2(0,-120));
+            laneEmptyLabel=Text(lanePanel.root,"锅里还没有食材",Vector2.zero,new Vector2(378,46),20,CampaignUI.WithAlpha(ink,.7f));
+            Anchor(laneEmptyLabel.rectTransform,new Vector2(.5f,1),new Vector2(.5f,1),new Vector2(0,-52));
+            // 同时兼容当前所有可组合的材料种类；不通过食材名推测锅内状态。
+            for(int i=0;i<5;i++)
+            {
+                RectTransform cell=Node("Landed ingredient "+i,lanePanel.root);
+                cell.sizeDelta=new Vector2(76,66);
+                Anchor(cell,new Vector2(0,1),new Vector2(0,1),new Vector2(19+i*76,-50));
+                RectTransform imageRect=Node("Ingredient icon",cell);imageRect.sizeDelta=new Vector2(44,40);
+                Anchor(imageRect,new Vector2(.5f,1),new Vector2(.5f,1),Vector2.zero);
+                Image icon=imageRect.gameObject.AddComponent<Image>();icon.raycastTarget=false;icon.preserveAspect=true;
+                RectTransform countFace=Card("Ingredient quantity",cell,new Vector2(40,30),paper,true);
+                Anchor(countFace,new Vector2(1,1),new Vector2(1,1),new Vector2(-1,-13));
+                Text count=Text(countFace,"",Vector2.zero,new Vector2(40,30),20,ink,TextAnchor.MiddleCenter);
+                Text label=Text(cell,"",Vector2.zero,new Vector2(76,30),20,ink,TextAnchor.MiddleCenter);
+                Anchor(label.rectTransform,new Vector2(.5f,0),new Vector2(.5f,0),Vector2.zero);
+                laneItemIcons.Add(icon);laneItemLabels.Add(label);laneItemCounts.Add(count);cell.gameObject.SetActive(false);
+            }
+        }
+        private void SetLaneIngredients(FoodInput[] inputs)
+        {
+            int count=inputs==null?0:inputs.Length;
+            laneEmptyLabel.gameObject.SetActive(count==0);
+            for(int i=0;i<laneItemIcons.Count;i++)
+            {
+                bool show=i<count;laneItemIcons[i].transform.parent.gameObject.SetActive(show);
+                if(!show)continue;
+                FoodInput item=inputs[i];
+                var material=FreeKitchenRules.FindMaterial(item.itemId);
+                laneItemIcons[i].sprite=overlayIcons!=null?overlayIcons.Get(item.itemId):null;
+                laneItemIcons[i].color=Color.white;
+                Set(laneItemLabels[i],material!=null?material.name:item.itemId);
+                Set(laneItemCounts[i],"×"+item.units);
+            }
         }
         private void BuildMealCard()
         {
@@ -930,26 +973,39 @@ namespace Guochao
             string dish=session.LaneDishName(laneIndex),contents=session.LaneContents(laneIndex);
             var product=session.ProductAtLane(laneIndex);
             bool hasBatch=lane.freeBatch!=null;
+            var guide=FreePanGuide.Read(session,laneIndex);
             string method=hasBatch?lane.freeBatch.method??"":"";
             string[] methods=hasBatch?session.FreeMethods(laneIndex):Array.Empty<string>();
-            bool methodOpen=methods.Length>0&&(lane.step==KitchenStep.Idle||lane.step==KitchenStep.Prep);
-            bool canPack=false;foreach(string pkg in session.LanePackages(laneIndex))if(session.CanPackToHand(laneIndex,pkg,out _)){canPack=true;break;}
+            bool methodOpen=methods.Length>0&&lane.step==KitchenStep.Prep;
+            bool emergency=product!=null&&session.CanUseEmergencyBag(product);
+            bool canPack=false;foreach(string pkg in session.AvailableLanePackages(laneIndex))if(session.CanPackToHand(laneIndex,pkg,out _)){canPack=true;break;}
             string legacyPackage=lane.freeBatch==null&&lane.step==KitchenStep.Pack?session.LanePackages(laneIndex).FirstOrDefault(p=>session.Count(p)>0):null;
-            // 详情最多 3 行：批名 / 投料摘要 / 成品状态。长材料不塞进小标签。
-            string line1=lane.step==KitchenStep.Idle?"还没下料":dish==""?"自由烹饪":dish;
-            string line2=contents!=""?LimitCells(contents,20):"";
-            string line3="";
-            if(product!=null)line3="余 "+product.remaining+" 份 · 质量 "+product.quality.ToString("0.##")+" · "+CampaignUI.Money(product.priceCents);
-            else if(hasBatch&&method!="")line3=MethodStatusName(lane.step,method,coldMethod:method=="cold_mix"||method=="muddle");
-            Set(lanePanel.title,(laneIndex+1)+"号锅");
-            Set(lanePanel.detail,line1+(line2!=""?"\n"+line2:"")+(line3!=""?"\n"+line3:""));
-            // 只在状态签名变化时重建按钮，避免每帧销毁/重建打断点击与焦点。
-            string key=laneIndex+"|"+lane.step+"|"+line1+"|"+line2+"|"+line3+"|"+string.Join(",",methods)+"|"+method+"|"+methodOpen+"|"+canPack+"|"+legacyPackage;
+            bool freeView=hasBatch||lane.step==KitchenStep.Idle||lane.step==KitchenStep.Dirty;
+            Set(lanePanel.title,(laneIndex+1)+"号锅"+(freeView&&guide.state!=""?"  ·  "+guide.state:""));
+            SetLaneIngredients(guide.inputs);
+            if(freeView)
+            {
+                string status=guide.next;
+                if(emergency&&canPack)status+="\n应急薄袋 · 售出国潮 −5";
+                else
+                {
+                    if(guide.reference!="")status+="\n"+guide.reference;
+                    if(product!=null)status+="\n余 "+product.remaining+" 份 · "+CampaignUI.Money(product.priceCents);
+                }
+                Set(lanePanel.detail,status);
+            }
+            else
+            {
+                laneEmptyLabel.gameObject.SetActive(false);
+                Set(lanePanel.detail,(dish!=""?dish:"正在制作")+(contents!=""?"\n"+contents:""));
+            }
+            // 不在每帧重建按钮，避免点击和焦点被刷新打断。
+            string key=laneIndex+"|"+lane.step+"|"+string.Join(",",methods)+"|"+method+"|"+methodOpen+"|"+guide.canStart+"|"+canPack+"|"+emergency+"|"+legacyPackage;
             if(key!=lanePanelKey)
             {
                 lanePanelKey=key;
                 int choices=methodOpen?methods.Length+1:canPack||legacyPackage!=null?1:lane.step==KitchenStep.Utensil?1:0;
-                RebuildChoices(lanePanel,new Vector2(360,196),choices);
+                RebuildChoices(lanePanel,new Vector2(420,280),choices);
                 int at=0;
                 if(methodOpen)
                 {
@@ -958,12 +1014,12 @@ namespace Guochao
                         string captured=m;
                         SetChoice(lanePanel,at++,MethodShortName(m),()=>owner.SetFreeCookingMethod(laneIndex,captured),true,m==method);
                     }
-                    SetChoice(lanePanel,at++,method=="cold_mix"||method=="muddle"?"制作":"开火",()=>owner.UseCookware(laneIndex),true,false);
+                    bool cold=method=="cold_mix"||method=="muddle"||(method==""&&methods.Length==1&&(methods[0]=="cold_mix"||methods[0]=="muddle"));
+                    SetChoice(lanePanel,at++,cold?"制作":"开火",()=>owner.UseCookware(laneIndex),guide.canStart,false);
                 }
-                else if(canPack)SetChoice(lanePanel,at++,"装好拿起",()=>owner.PackMeal(laneIndex),true,false);
+                else if(canPack)SetChoice(lanePanel,at++,emergency?"应急袋装餐":"装好拿起",()=>owner.PackMeal(laneIndex),true,false);
                 else if(legacyPackage!=null)SetChoice(lanePanel,at++,"装好递餐",()=>owner.UsePackage(laneIndex,legacyPackage),true,false);
-                else if(lane.step==KitchenStep.Utensil)SetChoice(lanePanel,at++,"起锅",()=>owner.UseCookware(laneIndex),true,false);
-
+                else if(lane.step==KitchenStep.Utensil)SetChoice(lanePanel,at++,FreeKitchenRules.IsColdMethod(method)?"调制":"起锅",()=>owner.UseCookware(laneIndex),true,false);
             }
         }
         private int LanePanelLane()
@@ -971,7 +1027,7 @@ namespace Guochao
             var input=owner.InputHandler;
             StallInteractionTarget focus=input!=null&&input.FocusedTarget!=null&&input.FocusedTarget.kind==StallInteractionKind.Cookware?input.FocusedTarget:null;
             if(focus!=null)return focus.lane;
-            if(owner.SelectedLaneIndex>=0&&owner.SelectedLaneIndex<session.Lanes.Length&&session.Lanes[owner.SelectedLaneIndex].step!=KitchenStep.Idle)return owner.SelectedLaneIndex;
+            if(owner.SelectedLaneIndex>=0&&owner.SelectedLaneIndex<session.Lanes.Length)return owner.SelectedLaneIndex;
             return -1;
         }
         private static string LimitCells(string value,int max)

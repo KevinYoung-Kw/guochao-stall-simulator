@@ -24,12 +24,12 @@ namespace Guochao
             // FLAVOR11: S-prefixed flavor seasonings photograph the condiment-jar
             // equipment model (the generic ingredient crate would paint them as
             // sealed meal boxes). Each flavor then gets its own sauce tint so
-            // the three bottles read as three different condiments at a glance.
+            // every bottle reads as a different condiment at a glance.
             bool flavor=id.Length==3&&id[0]=='S';
             GameObject item=SupplyCatalog.IsEquipment(id)||id.StartsWith("P")||flavor?EquipmentVisualFactory.Create(id,booth.transform):EquipmentVisualFactory.Ingredient(id,booth.transform);
             if(flavor)
             {
-                Color sauce=id=="S02"?new Color(.89f,.86f,.70f):id=="S05"?new Color(.78f,.26f,.07f):new Color(.55f,.11f,.05f);
+                Color sauce=id=="S02"?new Color(.89f,.86f,.70f):id=="S05"?new Color(.78f,.26f,.07f):id=="S13"?new Color(.42f,.20f,.08f):id=="S14"?new Color(.95f,.97f,.98f):new Color(.55f,.11f,.05f);
                 foreach(Renderer renderer in item.GetComponentsInChildren<Renderer>(true))
                     if(renderer.name=="CondimentJar")
                     {Material tinted=new Material(renderer.sharedMaterial){color=sauce};renderer.sharedMaterial=tinted;}

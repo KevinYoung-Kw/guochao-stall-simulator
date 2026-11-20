@@ -352,6 +352,11 @@ namespace Guochao
             Label(paper,"营业结束现金  "+CommerceReceiptData.Money(session.CashCents),new Vector2(-215,-306),new Vector2(650,46),29,ink).fontStyle=FontStyle.Bold;
             string summaryNote=session.UnseasonedPortionsServed>0?"缺油盐成交 "+session.UnseasonedPortionsServed+" 份 · 诚信 "+session.IntegrityChange
                 : session.RevenueCents>0?StallUiCopy.Text("closing.sold_flavor","收好账，今天收工"):"";
+            if(session.EmergencyPackagesSold>0)
+            {
+                string emergencyNote="应急薄袋 "+session.EmergencyPackagesSold+" 份 · 国潮 "+session.EmergencyPackagingScore;
+                summaryNote=session.UnseasonedPortionsServed>0?summaryNote+" · "+emergencyNote:emergencyNote;
+            }
             if(summaryNote==""&&session.Served==0&&session.WastedPortions==0)
             {
                 bool usedAnything=false;

@@ -274,8 +274,11 @@ namespace Guochao
             if(product==null){reason="这口锅还没有出锅的成品。";return false;}
             if(lane.step!=KitchenStep.Pack&&lane.step!=KitchenStep.ReadyStock){reason="这份成品还没轮到装台。";return false;}
             if(lane.batchRemaining<=0||product.remaining<=0){reason="这份成品已经装完了。";return false;}
-            if(Array.IndexOf(product.packages,packageId)<0){reason="这种包材不适合这份成品。";return false;}
-            if(Count(packageId)<=0){reason="包材已经用完。";return false;}
+            if(packageId==EmergencyBagId)
+            {if(!CanUseEmergencyBag(product)){reason="还有合用包材，先使用现有包材。";return false;}}
+            else
+            {if(Array.IndexOf(product.packages,packageId)<0){reason="这种包材不适合这份成品。";return false;}
+             if(Count(packageId)<=0){reason="包材已经用完。";return false;}}
             string pending=lane.pendingFlavorId??"";
             if(pending!="")
             {

@@ -73,6 +73,9 @@ namespace Guochao
         // 1=本版（自由批次深拷贝随锅位保存，自由生产守恒账按视觉菜谱索引另存）。
         // 除 0/1 外一律拒绝。
         public const int FreeKitchenVersion1=1;
+        // B05：0/缺省=旧档（无共享单车堵摊字段，Restore 迁移为未触发/未激活/20s 轮询就绪）；
+        // 1=本版（保存堵摊激活、剩余台数、当日已触发标记与 20s 轮询剩余）。除 0/1 外一律拒绝。
+        public const int BikeBlockVersion1=1;
         public const string RandomAlgorithm="System.Random.NextDouble.UnityMono.v1";
         public int schemaVersion=CurrentVersion;
         public string sessionId,randomAlgorithm=RandomAlgorithm,message;
@@ -111,6 +114,10 @@ namespace Guochao
         public bool heldMealPresent;
         // RISK7 坏账面额累计（只增事实计数）与风险事件计数（issued=recovered+lost+pending）。
         public int lostRevenueCents,riskEventsIssued,riskEventsRecovered,riskEventsLost;
+        // B05 共享单车堵摊状态。旧 JSON 缺字段补 0/false，由 Restore 按 v0 迁移；不参与 A01 债权计数。
+        public int bikeBlockVersion,bikeBlockRemaining,bikeBlockMask;
+        public bool bikeBlockActive,bikeBlockTriggered;
+        public float bikeBlockPollRemaining;
         public bool started,finished;
         public BusinessServicePhase servicePhase;
         public float elapsed,nextCustomer;
@@ -123,7 +130,7 @@ namespace Guochao
         internal static StallOrder CopyOrder(StallOrder s)=>new StallOrder{id=s.id,recipeIndex=s.recipeIndex,lane=s.lane,reservedLane=s.reservedLane,
             spawnedAt=s.spawnedAt,arrivedAt=s.arrivedAt,startedAt=s.startedAt,finishedAt=s.finishedAt,departureReason=s.departureReason,
             patience=s.patience,maxPatience=s.maxPatience,arrived=s.arrived,departed=s.departed,served=s.served,customer=s.customer,
-            paidCents=s.paidCents,riskSerial=s.riskSerial,shortSeasoning=s.shortSeasoning,
+            paidCents=s.paidCents,riskSerial=s.riskSerial,shortSeasoning=s.shortSeasoning,emergencyPackage=s.emergencyPackage,
             requestedFlavorId=s.requestedFlavorId??"",servedFlavorId=s.servedFlavorId??"",
             productId=s.productId??"",productName=s.productName??"",productMethod=s.productMethod??"",productFamily=s.productFamily??"",productPriceCents=s.productPriceCents};
         internal static KitchenLane CopyLane(KitchenLane s)=>new KitchenLane{index=s.index,recipeIndex=s.recipeIndex,orderId=s.orderId,reservedOrderId=s.reservedOrderId,

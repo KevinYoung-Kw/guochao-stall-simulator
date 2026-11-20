@@ -444,6 +444,7 @@ namespace Guochao
             var setup=ProcurementPlanCheck.Project(run,includeBasket:false).ToSetup(run);
             setup.canReturnMarket=run.MarketUsed<120;
             setup.seed=Campaign==null?12017:Campaign.seed+Campaign.dayIndex*7919;
+            StallProgressionRules.ApplyBusinessSetup(Campaign,setup);
             return setup;
         }
         private void EnterBusiness(BusinessSetup setup=null)

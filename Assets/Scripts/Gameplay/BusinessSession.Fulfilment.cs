@@ -33,7 +33,7 @@ namespace Guochao
                 else shortSeasoning=true;
             }
             if(flavorId!="")Inventory[flavorId]--;
-            Inventory[packageId]--;
+            if(packageId!=EmergencyBagId)Inventory[packageId]--;
             product.remaining--;lane.batchRemaining--;
             var snapshot=product.Copy();
             snapshot.portions=snapshot.remaining=1; // 一份装的独立物理快照
@@ -56,8 +56,11 @@ namespace Guochao
             if(product==null){reason="这口锅还没有出锅的成品。";return false;}
             if(lane.step!=KitchenStep.Pack&&lane.step!=KitchenStep.ReadyStock){reason="这份成品还没轮到装餐。";return false;}
             if(lane.batchRemaining<=0||product.remaining<=0){reason="这份成品已经装完了。";return false;}
-            if(Array.IndexOf(product.packages,packageId)<0){reason="这种包材不适合这份成品。";return false;}
-            if(Count(packageId)<=0){reason="包材已经用完。";return false;}
+            if(packageId==EmergencyBagId)
+            {if(!CanUseEmergencyBag(product)){reason="还有合用包材，先使用现有包材。";return false;}}
+            else
+            {if(Array.IndexOf(product.packages,packageId)<0){reason="这种包材不适合这份成品。";return false;}
+             if(Count(packageId)<=0){reason="包材已经用完。";return false;}}
             string pending=lane.pendingFlavorId??"";
             if(pending!="")
             {
@@ -74,7 +77,7 @@ namespace Guochao
             var meal=PackOnePortion(Lanes[laneIndex],packageId);
             HeldMeal=meal;
             if(AcceptingOrders)nextCustomer=Mathf.Min(nextCustomer,1f);
-            Message=meal.product.name+"已打包拿在手上（¥"+(meal.priceCents/100f).ToString("0.00")+"），可放上台或直接递给顾客。";
+            Message=(meal.packageId==EmergencyBagId?"合用包材已用完，使用应急薄袋（售出国潮 −5）。":"")+meal.product.name+"已打包拿在手上（¥"+(meal.priceCents/100f).ToString("0.00")+"），可放上台或直接递给顾客。";
             Revision++;return true;
         }
 
@@ -143,6 +146,7 @@ namespace Guochao
             if(gate!=null&&gate.adoptAsRisk)
             {
                 StallRiskEvent risk=RiskState.Adopt(StallRiskRules.EventA01,order.id,meal.sourceLane,product.id,priceCents,gate.interceptSeconds,gate.collectCents);
+                order.emergencyPackage=meal.packageId==EmergencyBagId;
                 removeFromHolding();ReleaseOrderReservation(order.id);
                 Served++;
                 order.served=true;order.finishedAt=Elapsed;if(order.lane>=0)order.lane=-1;
@@ -152,6 +156,7 @@ namespace Guochao
                 Message=product.name+"已出餐，对方扫码未到账——在 "+gate.interceptSeconds.ToString("0.0")+" 秒内点击对方追回！";
                 Revision++;PublishRiskSalePending(risk);return true;
             }
+            order.emergencyPackage=meal.packageId==EmergencyBagId;
             removeFromHolding();ReleaseOrderReservation(order.id);
             CashCents+=priceCents;RevenueCents+=priceCents;Served++;
             order.served=true;order.finishedAt=Elapsed;if(order.lane>=0)order.lane=-1;

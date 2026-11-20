@@ -13,7 +13,7 @@ namespace Guochao
         private GameFlow flow;
         private GameItemIconLibrary icons;
         private CampaignFocusScope focusScope;
-        private Text saveStatus;
+        private Text saveStatus,progressionButtonLabel;
         private ScrollRect ledgerScroll,stockScroll;
 
         public static void Open(GameFlow game)
@@ -25,18 +25,38 @@ namespace Guochao
         }
         public static void Close()
         {
+            StallProgressionUI.Close();
             if(instance==null)return;
             var closing=instance;instance=null;closing.focusScope?.Restore();closing.gameObject.SetActive(false);Destroy(closing.gameObject);
+        }
+        internal static void RefreshProgressionDisplay()
+        {
+            if(instance==null||instance.flow?.Campaign==null)return;
+            if(instance.progressionButtonLabel!=null)instance.progressionButtonLabel.text=ProgressionButtonCaption(instance.flow.Campaign);
+            instance.RefreshSaveStatus();
+        }
+        private static string ProgressionButtonCaption(CampaignState state)
+        {
+            StallProgressionState p=StallProgressionRules.EnsureInitialized(state);
+            return p.availablePoints>0?"摊主成长 ("+p.availablePoints+"点)":"摊主成长 · Lv"+p.level;
         }
         private void Build()
         {
             CampaignState state=flow.Campaign;CampaignDayLedger day=state.lastDay;
             int dayNumber=day!=null?day.dayIndex:state.dayIndex;
             RectTransform safe=CampaignUI.Canvas(transform,"Night ledger canvas",1300,CampaignUI.WithAlpha(CampaignUI.Ink,.28f));
+            // Preserve the full ledger at 4:3 while retaining the existing
+            // height-matched size on 16:9 and wider displays.
+            safe.GetComponentInParent<CanvasScaler>().screenMatchMode=CanvasScaler.ScreenMatchMode.Expand;
             CampaignUI.Text(safe,"回家了",new Vector2(-747,310),new Vector2(300,82),48,CampaignUI.PaperColor,TextAnchor.MiddleLeft,true);
             CampaignUI.Text(safe,"第 "+dayNumber+" 天 · 夜间",new Vector2(-740,240),new Vector2(314,48),25,CampaignUI.PaperColor);
-            CampaignUI.Text(safe,"收好家当，明天接着干。",new Vector2(-740,183),new Vector2(314,90),23,CampaignUI.PaperColor);
-            if(flow.Run!=null&&flow.Run.Phase==GamePhase.Night)CampaignUI.Button(safe,"夜间采购",new Vector2(-740,66),new Vector2(300,54),()=>OnlineProcurementUI.OpenShop(flow));
+            CampaignUI.Text(safe,"收好家当，明天接着干。",new Vector2(-740,189),new Vector2(314,46),23,CampaignUI.PaperColor);
+            if(flow.Run!=null&&flow.Run.Phase==GamePhase.Night)
+            {
+                Button growth=CampaignUI.Button(safe,ProgressionButtonCaption(state),new Vector2(-740,132),new Vector2(300,54),()=>StallProgressionUI.Open(flow));
+                progressionButtonLabel=growth.GetComponentInChildren<Text>();
+                CampaignUI.Button(safe,"夜间采购",new Vector2(-740,70),new Vector2(300,54),()=>OnlineProcurementUI.OpenShop(flow));
+            }
             // NIGHT9 N01：夜间重器去向选择。默认「卸回屋」＝现行安全行为；只有显式
             // 选「大件留车」才会在次日早晨按 35%~45% 基础概率做废品飞贼检定。
             // 台账「车上/家中」标签与选择后的真实位置一致。

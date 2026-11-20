@@ -72,18 +72,23 @@ namespace Guochao
             if(data==null||data.schemaVersion!=1||data.campaign==null||data.run==null||data.campaign.dayIndex<1||data.campaign.profile==null)
                 throw new InvalidDataException("存档格式不兼容。");
             RunState.Restore(data.run);
-            long integrity=0;
+            long integrity=0,packagingScore=0;
             foreach(var day in data.campaign.history)
             {
                 if(day==null||day.resaleIncomeCents<0||day.unseasonedPortionsServed<0||day.unseasonedPortionsServed>day.served||
                     (long)day.integrityChange!=(long)day.unseasonedPortionsServed*SeasoningShortageRules.IntegrityDeltaPerShortPortion)
                     throw new InvalidDataException("日账的缺调味记录无效。");
+                if(day.emergencyPackagesUsed<0||day.emergencyPackagesUsed>day.served||(long)day.packagingScoreDelta!=(long)day.emergencyPackagesUsed*BusinessSession.EmergencyPackagingScorePerSale)
+                    throw new InvalidDataException("日账的应急包材记录无效。");
+                packagingScore+=day.packagingScoreDelta;
                 long sold=0;foreach(var row in day.resales??new System.Collections.Generic.List<CampaignResaleRow>())
                 {if(row==null||row.amountCents<=0)throw new InvalidDataException("日账的旧货收款无效。");sold+=row.amountCents;}
                 if(sold!=day.resaleIncomeCents)throw new InvalidDataException("旧货日账不守恒。");
                 integrity+=day.integrityChange;
             }
             if(integrity!=data.campaign.integrityChangeTotal)throw new InvalidDataException("跨日诚信记录不一致。");
+            StallProgressionRules.ValidateAndNormalizeSave(data.campaign);
+            if(packagingScore!=data.campaign.packagingScoreTotal)throw new InvalidDataException("跨日包装评分不一致。");
             // Night online orders: structurally valid, unique, legal days, and
             // their per-day ledger totals must match the frozen deal prices.
             // Old saves simply carry no orders and a zero ledger field.
@@ -149,7 +154,25 @@ namespace Guochao
             {
                 try
                 {
-                    data=Decode(ReadRaw(slot));status=slot=="backup"?"主存档异常，已恢复上一份有效备份。":"已读取第 "+data.campaign.dayIndex+" 天的进度";return true;
+                    string raw=ReadRaw(slot);data=Decode(raw);
+                    status=slot=="backup"?"主存档异常，已恢复上一份有效备份。":"已读取第 "+data.campaign.dayIndex+" 天的进度";
+                    // Work on a second decoded copy: migration failure must not
+                    // discard a valid original or silently switch save slots.
+                    try
+                    {
+                        if(LegacyFlavorSaveMigration.HasMarkers(data))
+                        {
+                            var candidate=Decode(raw);var migrated=LegacyFlavorSaveMigration.Apply(candidate);
+                            if(migrated.migrated>0)data=Decode(Encode(candidate));
+                            if(migrated.ambiguous>0)status+="；部分旧配料记录待核对，原记录已保留";
+                        }
+                    }
+                    catch(Exception error)
+                    {
+                        Debug.LogWarning("旧配料迁移未应用，原记录已保留："+error.Message);
+                        status+="；旧配料暂未转换，原记录已保留";
+                    }
+                    return true;
                 }
                 catch(Exception error){last=error.Message;}
             }

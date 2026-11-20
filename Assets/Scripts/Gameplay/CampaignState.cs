@@ -23,11 +23,15 @@ namespace Guochao
     {
         public int dayIndex,openingCashCents,purchasesCents,nightFuelCents,revenueCents,closingCashCents,served,lost,resaleIncomeCents,unseasonedPortionsServed,integrityChange;
         public long onlinePurchasesCents;
+        public int emergencyPackagesUsed,packagingScoreDelta;
         // RISK7：A01 坏账与未决债权解释字段（旧档 JsonUtility 补 0；普通无风险日账
         // 保持 0，原有字段与行项目不变）。badDebtCents=已核销坏账面额（不冲减
         // revenueCents）；riskPendingCents=日结时仍未收回的债权面额（Controller 关摊
         // 核销后应为 0，>0 说明存在未处理债权）。
         public int badDebtCents,riskPendingCents;
+        // PROGRESSION：正式日结一次性入账的摊主经验（整数半 XP，1 XP = 2 half-XP）。
+        // 旧档缺字段由 JsonUtility 补 0，不回溯补发历史订单经验。
+        public int progressionXpHalves,progressionOrderXpHalves,progressionFlavorXpHalves,progressionProfitXpHalves,progressionLevelUps;
         public string district,sessionId;
         public bool committed;
         public List<CampaignSaleRow> sales=new List<CampaignSaleRow>();
@@ -40,9 +44,10 @@ namespace Guochao
         public string campaignId=Guid.NewGuid().ToString("N");
         public int dayIndex=1,vehicleLevel=1,cashCents,debtCents,dayOpeningCashCents;
         public int seed=12017,gas,cartridge,coal,electricity;
-        public int integrityChangeTotal;
+        public int integrityChangeTotal,packagingScoreTotal;
         public float reputation;
         public RunProfile profile;
+        public StallProgressionState progression;
         public CampaignDayLedger lastDay;
         public List<CampaignDayLedger> history=new List<CampaignDayLedger>();
         public List<OnlineOrder> onlineOrders=new List<OnlineOrder>();
@@ -121,6 +126,7 @@ namespace Guochao
             var ledger=new CampaignDayLedger{dayIndex=dayIndex,sessionId=sessionId,openingCashCents=dayOpeningCashCents,
                 purchasesCents=run.SpentCents,resaleIncomeCents=run.ResaleIncomeCents,resales=new List<CampaignResaleRow>(run.Resales),revenueCents=service.RevenueCents,served=service.Served,lost=service.Lost,
                 unseasonedPortionsServed=service.UnseasonedPortionsServed,integrityChange=service.IntegrityChange,
+                emergencyPackagesUsed=service.EmergencyPackagesSold,packagingScoreDelta=service.EmergencyPackagingScore,
                 district=service.District.name,committed=true};
             // RISK7：销售行按逐单“实际实收”拼账（含暴躁双倍追回），不再用
             // served × 固定菜价——未收回的 A01 债权/坏账一文不计入 totalCents。
@@ -162,7 +168,10 @@ namespace Guochao
             // 在次日 StartNextDay 做逐件确定性 N01 检定（见 NightSecurityRules）。
             NightSecurityRules.SnapshotVehicleGear(this);
             NightSecurityRules.AssignLocations(this);
-            ledger.closingCashCents=cashCents;lastDay=ledger;history.Add(ledger);integrityChangeTotal+=service.IntegrityChange;
+            ledger.closingCashCents=cashCents;
+            StallProgressionRules.ApplyDaySettlement(this,service,ledger);
+            lastDay=ledger;history.Add(ledger);integrityChangeTotal+=service.IntegrityChange;
+            packagingScoreTotal+=service.EmergencyPackagingScore;
             return true;
         }
         public RunState CreateNextDay(float checkoutSeconds)
