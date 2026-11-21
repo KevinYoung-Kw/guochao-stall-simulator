@@ -27,6 +27,7 @@ namespace Guochao
         // real model per unit. grocerySkus recovers the catalog SKU per key.
         private readonly Dictionary<string, GameObject> groceries = new Dictionary<string, GameObject>();
         private readonly Dictionary<string, string> grocerySkus = new Dictionary<string, string>();
+        private readonly Dictionary<string, Vector3> groceryNaturalScales = new Dictionary<string, Vector3>();
         private string stoveVisualState;
         private LineRenderer targetRing;
         private GamePhase phase;
@@ -578,16 +579,18 @@ namespace Guochao
                 if (stock != null)
                 {
                     item.transform.SetParent(transform,true);
+                    if (groceryNaturalScales.TryGetValue(pair.Key, out Vector3 savedScale)) item.transform.localScale = savedScale;
                     item.transform.SetPositionAndRotation(stock.transform.position,stock.transform.rotation);
                     ItemTransferMotion.Begin(item,from,rotation,()=>{if(stock)stock.SetActive(true);if(item)Destroy(item);});
                 }
                 else Destroy(item);
                 remove.Add(pair.Key);
             }
-            foreach (string instanceKey in remove){ groceries.Remove(instanceKey); grocerySkus.Remove(instanceKey); }
+            foreach (string instanceKey in remove){ groceries.Remove(instanceKey); grocerySkus.Remove(instanceKey); groceryNaturalScales.Remove(instanceKey); }
             if(!string.IsNullOrEmpty(state.HeldGrocery))PlaceHeldFood(state);
-            for (int i=0;i<state.Cart.Count;i++) PlaceFood(state,i,false);
-            for (int i=0;i<state.Cargo.Count;i++) PlaceFood(state,i,true);
+            ShoppingBasketPlan basketLayout=ShoppingBasketLayout.Plan(state.Cart,state.CartCapacity);
+            for (int i=0;i<state.Cart.Count;i++) PlaceFood(state,i,false,basketLayout);
+            for (int i=0;i<state.Cargo.Count;i++) PlaceFood(state,i,true,null);
             for(int i=0;i<shelfSamples.Length;i++)
             {
                 // FREEDOM19: market shelf stock is not depleted by purchases;
@@ -597,7 +600,7 @@ namespace Guochao
             }
         }
 
-        private void PlaceFood(RunState state,int index,bool onVehicle)
+        private void PlaceFood(RunState state,int index,bool onVehicle,ShoppingBasketPlan basketLayout)
         {
             string sku=onVehicle?state.Cargo[index]:state.Cart[index];
             int ordinal=onVehicle?ProcurementInstanceKeys.CargoOrdinal(state.Cargo,index):ProcurementInstanceKeys.OrdinalOf(state.Cargo,state.Cart,sku,index);
@@ -606,15 +609,18 @@ namespace Guochao
             int definition=Array.FindIndex(GameCatalog.Items, entry=>entry.id==sku);
             if(!exists)
             {
-                item=MakeFood(sku,transform,.36f);groceries.Add(instanceKey,item);grocerySkus[instanceKey]=sku;
+                item=MakeFood(sku,transform,.36f);groceries.Add(instanceKey,item);grocerySkus[instanceKey]=sku;groceryNaturalScales[instanceKey]=item.transform.localScale;
                 if(definition>=0 && shelfSamples[definition])
                     item.transform.SetPositionAndRotation(shelfSamples[definition].transform.position,shelfSamples[definition].transform.rotation);
                 else item.transform.position=HasAnchor("SupplyCounter")?Anchor("SupplyCounter")+Vector3.up*.9f:Player.transform.position+Vector3.up*.9f;
             }
+            if(!groceryNaturalScales.TryGetValue(instanceKey,out Vector3 naturalScale))
+            { naturalScale=item.transform.localScale; groceryNaturalScales[instanceKey]=naturalScale; }
             Vector3 from=item.transform.position; Quaternion rotation=item.transform.rotation;
             if(onVehicle)
             {
                 item.transform.SetParent(transform,true);
+                item.transform.localScale=naturalScale;
                 if(loadout!=null){item.SetActive(loadout.Apply(ProcurementInstanceKeys.LoadoutKey(state.Cargo,index),item));}
                 else if(SupplyCatalog.IsEquipment(sku)&&EquipmentVisualFactory.IsHeavy(sku))
                     PlaceLoaded(item,"StoveLoadedPlacement",new Vector3(.22f,0,-.45f));
@@ -623,8 +629,29 @@ namespace Guochao
             else
             {
                 item.transform.SetParent(trolley.transform,true);
-                Transform slot=FindChild(trolley.transform,"ShoppingSlot"+(index%3));
-                if(slot!=null)item.transform.position=slot.position+Vector3.up*(index/3)*.27f;
+                item.transform.localScale=naturalScale;
+                var layout=basketLayout;
+                if(layout.Success && index<layout.Placements.Count)
+                {
+                    var placement=layout.Placements[index];
+                    float cellWidth=.8f/3f, cellDepth=1.3f/layout.Rows;
+                    item.transform.rotation=trolley.transform.rotation*Quaternion.Euler(0,placement.Rotated?90f:0f,0);
+                    item.transform.localPosition=Vector3.zero;
+                    Bounds naturalBounds=BasketVisualBounds(item,trolley.transform);
+                    float fitWidth=(placement.Width*cellWidth-.01f)/Mathf.Max(.0001f,naturalBounds.size.x);
+                    float fitDepth=(placement.Height*cellDepth-.01f)/Mathf.Max(.0001f,naturalBounds.size.z);
+                    float fit=Mathf.Clamp(Mathf.Min(1f,Mathf.Min(fitWidth,fitDepth)),.001f,1f);
+                    item.transform.localScale=naturalScale*fit;
+                    Bounds visible=BasketVisualBounds(item,trolley.transform);
+                    float centerX=-.4f+(placement.X+placement.Width*.5f)*cellWidth;
+                    float centerZ=-.65f+(placement.Y+placement.Height*.5f)*cellDepth;
+                    item.transform.localPosition+=new Vector3(centerX-visible.center.x,.575f-visible.min.y,centerZ-visible.center.z);
+                }
+                else
+                {
+                    Transform slot=FindChild(trolley.transform,"ShoppingSlot"+(index%3));
+                    if(slot!=null)item.transform.position=slot.position+Vector3.up*(index/3)*.27f;
+                }
             }
             if((item.transform.position-from).sqrMagnitude>.0025f)ItemTransferMotion.Begin(item,from,rotation);
         }
@@ -635,12 +662,14 @@ namespace Guochao
             string instanceKey=ProcurementInstanceKeys.Key(sku,ProcurementInstanceKeys.HeldOrdinal(state.Cargo,state.Cart,sku));
             if(!groceries.TryGetValue(instanceKey,out GameObject item))
             {
-                item=MakeFood(sku,transform,.36f);groceries[instanceKey]=item;grocerySkus[instanceKey]=sku;
+                item=MakeFood(sku,transform,.36f);groceries[instanceKey]=item;grocerySkus[instanceKey]=sku;groceryNaturalScales[instanceKey]=item.transform.localScale;
                 int i=Array.FindIndex(GameCatalog.Items,x=>x.id==sku);
                 if(i>=0&&shelfSamples[i])item.transform.SetPositionAndRotation(shelfSamples[i].transform.position,shelfSamples[i].transform.rotation);
             }
             Vector3 from=item.transform.position;Quaternion rotation=item.transform.rotation;
-            item.transform.SetParent(Player.visual,false);item.transform.localPosition=new Vector3(0,.85f,.50f);item.transform.localRotation=Quaternion.identity;
+            item.transform.SetParent(Player.visual,false);
+            if(groceryNaturalScales.TryGetValue(instanceKey,out Vector3 naturalScale))item.transform.localScale=naturalScale;
+            item.transform.localPosition=new Vector3(0,.85f,.50f);item.transform.localRotation=Quaternion.identity;
             Player.SetCarriedVisual(item.transform);
             ItemTransferMotion.Begin(item,from,rotation);
         }
@@ -922,17 +951,48 @@ namespace Guochao
         private static GameObject MakeFood(string id, Transform parent, float size)
         {
             if(SupplyCatalog.IsEquipment(id)||id.StartsWith("P"))return EquipmentVisualFactory.Create(id,parent);
+            const float smallScale = .65f;
+            bool small = id.EndsWith("_small", StringComparison.Ordinal);
             id=SupplyCatalog.IngredientId(id);
-            if(id!="rice"&&id!="meat"&&id!="egg")return EquipmentVisualFactory.Ingredient(id,parent);
-            string model = id == "rice" ? "RiceBox" : id == "meat" ? "MeatBox" : "EggBox";
-            if (Resources.Load<GameObject>("Models/" + model) != null) return AuthoredModel(model, parent);
-            // Only loose ingredient boxes may use explicit placeholders; worlds and Aholo never do.
-            GameObject box = GameObject.CreatePrimitive(PrimitiveType.Cube); box.name = "IngredientBox_" + id;
-            box.transform.SetParent(parent, false); box.transform.localScale = new Vector3(size,size*.58f,size);
-            Destroy(box.GetComponent<Collider>());
-            Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
-            mat.color = GameCatalog.Find(id).color; box.GetComponent<Renderer>().material = mat;
-            return box;
+            GameObject created;
+            if(id!="rice"&&id!="meat"&&id!="egg")created=EquipmentVisualFactory.Ingredient(id,parent);
+            else
+            {
+                string model = id == "rice" ? "RiceBox" : id == "meat" ? "MeatBox" : "EggBox";
+                if (Resources.Load<GameObject>("Models/" + model) != null) created = AuthoredModel(model, parent);
+                else
+                {
+                    // Only loose ingredient boxes may use explicit placeholders; worlds and Aholo never do.
+                    GameObject box = GameObject.CreatePrimitive(PrimitiveType.Cube); box.name = "IngredientBox_" + id;
+                    box.transform.SetParent(parent, false); box.transform.localScale = new Vector3(size,size*.58f,size);
+                    Destroy(box.GetComponent<Collider>());
+                    Material mat = new Material(Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard"));
+                    mat.color = GameCatalog.Find(id).color; box.GetComponent<Renderer>().material = mat;
+                    created = box;
+                }
+            }
+            // Explicit prototype balancing: loose *_small packs scale the real
+            // root model to 0.65x (~27% volume) in the shared factory so player
+            // visuals and VehicleLoadout renderer-bounds measurements match.
+            if (small && created != null) created.transform.localScale *= smallScale;
+            return created;
+        }
+
+        private static Bounds BasketVisualBounds(GameObject model, Transform frame)
+        {
+            Bounds result = new Bounds(); bool any = false;
+            foreach(Renderer renderer in model.GetComponentsInChildren<Renderer>(true))
+            {
+                if(!(renderer is MeshRenderer) && !(renderer is SkinnedMeshRenderer)) continue;
+                Bounds local = renderer.localBounds;
+                for(int corner=0;corner<8;corner++)
+                {
+                    Vector3 sign = new Vector3((corner&1)==0?-1:1,(corner&2)==0?-1:1,(corner&4)==0?-1:1);
+                    Vector3 point = frame.InverseTransformPoint(renderer.transform.TransformPoint(local.center+Vector3.Scale(local.extents,sign)));
+                    if(!any){result=new Bounds(point,Vector3.zero);any=true;} else result.Encapsulate(point);
+                }
+            }
+            return any ? result : new Bounds(frame.InverseTransformPoint(model.transform.position),Vector3.zero);
         }
 
         public static Bounds RenderBounds(GameObject model)

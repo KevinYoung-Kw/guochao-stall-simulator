@@ -30,7 +30,7 @@ namespace Guochao
                 value=PackingItem.Measure(id,id,model.transform,RuntimeItemBalance.WeightKg(id));
                 RuntimeItemBalance.Configure(value);measured[id]=value;
             }
-            return new PackingItem{instanceId=key,itemId=id,bounds=value.bounds,measuredWeightKg=value.measuredWeightKg,specification=value.specification,hasTopSupport=value.hasTopSupport,topSupportBounds=value.topSupportBounds};
+            return new PackingItem{instanceId=key,itemId=id,bounds=value.bounds,measuredWeightKg=value.measuredWeightKg,specification=value.specification,hasTopSupport=value.hasTopSupport,topSupportBounds=value.topSupportBounds,hasBottomSupport=value.hasBottomSupport,bottomSupportBounds=value.bottomSupportBounds};
         }
         public string Validate(IReadOnlyList<string> equipment,IReadOnlyList<string> cargo,IEnumerable<string> packages)
         {
@@ -52,6 +52,7 @@ namespace Guochao
             string next=string.Join("|",keys);
             if(next!=signature){Plan=VehiclePacking.Plan(all,geometry,new PackingOptions{underBayUnlocked=false});signature=next;}
             if(Plan.FullyValidated)return "";
+            if(Plan.failureCode=="SearchBudgetExceeded")return "这批货暂时没找到装车方案，可先减少一部分，稍后再买。";
             return Plan.failureCode=="Overweight"?"这批家当超过三轮车的 100 kg 承重，请减少装载。":"车上没有适合放置这批物品的空位，请减少采购或调整家当。";
         }
         public bool Apply(string instanceId,GameObject model)

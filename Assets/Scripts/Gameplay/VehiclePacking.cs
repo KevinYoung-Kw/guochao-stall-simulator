@@ -22,7 +22,7 @@ namespace Guochao
         {id=key;label=name;columns=x;rows=y;allowed=tags;source=reference;}
         public bool Allows(ItemPackingSpec item)=>item!=null&&(allowed&item.tags)!=0;
         public static ContainerSpec Bag()=>new ContainerSpec("bag","随身挎包",2,3,PackingTag.Small|PackingTag.Ingredient|PackingTag.Seasoning|PackingTag.Packaging,"设定 S2：2×3，可扩至3×3；未给固定承重");
-        public static ContainerSpec ShoppingCart()=>new ContainerSpec("shopping_cart","超市购物车",3,3,PackingTag.All,"设定 S2：3×3，允许全部标签；未给固定承重");
+        public static ContainerSpec ShoppingCart()=>new ContainerSpec("shopping_cart","超市购物车",3,6,PackingTag.All,"用户反馈调参：3×6（原文设定 S2：3×3），允许全部标签；未给固定承重");
         public static ContainerSpec Trike()=>new ContainerSpec("trike","Lv.1 车斗",4,6,PackingTag.Core|PackingTag.Ingredient|PackingTag.Cooler|PackingTag.External|PackingTag.DeckVessel|PackingTag.Energy|PackingTag.Vessel,"总表载具：4×6、100kg；能源库允许气罐/电瓶放车斗"){weightLimitKg=100};
         public static ContainerSpec UnderBay()=>new ContainerSpec("under_bay","能源暗仓",2,2,PackingTag.Energy,"设定 S2：2×2，改装解锁"){requiresUpgrade=true,spoilageMultiplier=-1};
         public static ContainerSpec ToolRack()=>new ContainerSpec("tool_rack","工具挂杆",6,1,PackingTag.Tool,"设定 S2：6钩，小工具不占台面网格"){spoilageMultiplier=-1};
@@ -103,6 +103,8 @@ namespace Guochao
         // Actual flat cabinet surface, measured independently of handles/controls.
         public bool hasTopSupport;
         public Bounds topSupportBounds;
+        public bool hasBottomSupport;
+        public Bounds bottomSupportBounds;
         public float measuredWeightKg=-1;
         public Vector2Int gridOverride;
         public int units=1;
@@ -127,7 +129,13 @@ namespace Guochao
                 if((itemId=="B07"||itemId=="B08")&&renderer.name=="EnamelCabinet"){top=part;hasTop=true;}
             }
             if(!any)throw new ArgumentException("Cannot pack a model without actual renderer bounds: "+instanceId);
-            return new PackingItem{instanceId=instanceId,itemId=itemId,bounds=box,measuredWeightKg=measuredWeightKg,hasTopSupport=hasTop,topSupportBounds=top};
+            var result=new PackingItem{instanceId=instanceId,itemId=itemId,bounds=box,measuredWeightKg=measuredWeightKg,hasTopSupport=hasTop,topSupportBounds=top};
+            if(itemId=="RiceBucket"&&RiceBucketContactGeometry.TryMeasure(model,out Bounds bottom))
+            {
+                result.hasBottomSupport=true;
+                result.bottomSupportBounds=bottom;
+            }
+            return result;
         }
     }
 
@@ -289,7 +297,7 @@ namespace Guochao
                         Vector3 size=RotatedSize(item.bounds.size,turn);
                         if(size.x+options.clearance*2>zone.interior.size.x||size.z+options.clearance*2>zone.interior.size.z||size.y>zone.interior.size.y)continue;
                         if(!TryCells(item,container,turn,out RectInt cells)){LastFailure=item.itemId+"的原文占格在"+container.label+"中放不下，或尚未配置通用网格占格。";continue;}
-                        foreach(Vector3 center in Candidates(zone,item,size))
+                        foreach(Vector3 center in Candidates(zone,item,size,turn))
                         {
                             if(plan.searchedCandidates++>=options.searchBudget)return false;
                             Bounds bounds=new Bounds(center,size);if(!Inside(bounds,zone.interior)||!Clear(bounds))continue;
@@ -348,8 +356,16 @@ namespace Guochao
                     {
                         if(!TryCells(item,container,turn,out RectInt cells))continue;
                         Vector3 size=RotatedSize(item.bounds.size,turn);
-                        if(size.x>surface.size.x+.03f||size.z>surface.size.z+.03f)continue;
-                        Vector3 center=surface.center;center.y=surface.max.y+options.clearance+size.y*.5f;
+                        Vector3 center=surface.center;
+                        if(item.hasBottomSupport)
+                        {
+                            Vector3 footSize=RotatedSize(item.bottomSupportBounds.size,turn);
+                            if(footSize.x>surface.size.x-.002f||footSize.z>surface.size.z-.002f)continue;
+                            Vector3 footOffset=Quaternion.Euler(0,turn*90,0)*(item.bottomSupportBounds.center-item.bounds.center);
+                            center.x-=footOffset.x;center.z-=footOffset.z;
+                        }
+                        else if(size.x>surface.size.x+.03f||size.z>surface.size.z+.03f)continue;
+                        center.y=surface.max.y+options.clearance+size.y*.5f;
                         Bounds bounds=new Bounds(center,size);if(plan.searchedCandidates++>=options.searchBudget)return false;
                         if(!Inside(bounds,zone.interior)||!Clear(bounds))continue;
                         var placed=Placement(item,"cabinet_transport_top","trike",bounds,turn,cells,"");placed.supportInstanceId=support.instanceId;
@@ -400,11 +416,44 @@ namespace Guochao
                 }
                 return false;
             }
-            private IEnumerable<Vector3> Candidates(PackingZone zone,PackingItem item,Vector3 size)
+            private IEnumerable<Vector3> Candidates(PackingZone zone,PackingItem item,Vector3 size,int parentTurn)
             {
                 float bottom=zone.containerId=="tool_rack"||zone.containerId=="lock_slots"?zone.interior.max.y-size.y-options.clearance:zone.interior.min.y+options.clearance;
                 var xs=new List<float>{zone.interior.min.x+size.x*.5f+options.clearance,zone.interior.center.x,zone.interior.max.x-size.x*.5f-options.clearance};
                 var zs=new List<float>{zone.interior.min.z+size.z*.5f+options.clearance,zone.interior.center.z,zone.interior.max.z-size.z*.5f-options.clearance};
+                if(zone.id=="main_deck"&&(item.Spec.tags&PackingTag.Core)!=0)
+                {
+                    foreach(PackingItem child in items)
+                    {
+                        ItemPackingSpec childSpec=child.Spec;
+                        if(childSpec==null||(childSpec.tags&PackingTag.Vessel)==0||childSpec.compatibleParents==null||Array.IndexOf(childSpec.compatibleParents,item.itemId)<0)continue;
+                        for(int turn=0;turn<2;turn++)
+                        {
+                            float halfZ=RotatedSize(child.bounds.size,turn).z*.5f;
+                            zs.Add(zone.interior.min.z+halfZ+options.clearance);
+                            zs.Add(zone.interior.max.z-halfZ-options.clearance);
+                        }
+                    }
+                }
+                if(zone.id=="main_deck" && item.hasTopSupport)
+                {
+                    Quaternion parentRotation=Quaternion.Euler(0,parentTurn*90,0);
+                    Vector3 parentOffset=parentRotation*(item.bounds.center-item.topSupportBounds.center);
+                    foreach(PackingItem child in items)
+                    {
+                        if(child.itemId!="RiceBucket" || !child.hasBottomSupport)continue;
+                        for(int childTurn=0;childTurn<2;childTurn++)
+                        {
+                            Quaternion childRotation=Quaternion.Euler(0,childTurn*90,0);
+                            Vector3 footOffset=childRotation*(child.bottomSupportBounds.center-child.bounds.center);
+                            Vector3 childSize=RotatedSize(child.bounds.size,childTurn);
+                            xs.Add(zone.interior.min.x+childSize.x*.5f+options.clearance+footOffset.x+parentOffset.x);
+                            xs.Add(zone.interior.max.x-childSize.x*.5f-options.clearance+footOffset.x+parentOffset.x);
+                            zs.Add(zone.interior.min.z+childSize.z*.5f+options.clearance+footOffset.z+parentOffset.z);
+                            zs.Add(zone.interior.max.z-childSize.z*.5f-options.clearance+footOffset.z+parentOffset.z);
+                        }
+                    }
+                }
                 foreach(var point in g.preferredPoints.Values){xs.Add(point.x);zs.Add(point.z);}
                 foreach(var p in plan.placements)
                 {xs.Add(p.boundsInPackingFrame.max.x+size.x*.5f+options.clearance);xs.Add(p.boundsInPackingFrame.min.x-size.x*.5f-options.clearance);zs.Add(p.boundsInPackingFrame.max.z+size.z*.5f+options.clearance);zs.Add(p.boundsInPackingFrame.min.z-size.z*.5f-options.clearance);}

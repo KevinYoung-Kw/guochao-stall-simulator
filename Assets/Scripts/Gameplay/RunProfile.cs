@@ -56,7 +56,7 @@ namespace Guochao
         public int InitialCashCents => (Career?.cash??320)*100;
         public int InitialDebtCents => careerId=="career8"?300000:0;
         public float HomeSeconds => Has("嗜睡")?50:60;
-        public int CartCapacity => Has("收纳达人")?12:Has("丢三落四")?6:9;
+        public int CartCapacity => Has("收纳达人")?24:Has("丢三落四")?12:18;
         public float TransferSeconds => .55f*(Has("心灵手巧")?1f/1.5f:Has("笨手笨脚")?2f:1f);
         public float TravelSeconds => 15*(Has("飙车党")?.75f:Has("龟速司机")?1.4f:1f);
         public float PurchaseMultiplier => Has("商超老会员")?.85f:1;

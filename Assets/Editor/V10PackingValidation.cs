@@ -73,7 +73,7 @@ namespace Guochao.Editor
                 value=PackingItem.Measure(id,id,model.transform,RuntimeItemBalance.WeightKg(id));RuntimeItemBalance.Configure(value);measured[id]=value;
                 log.AppendLine("MODEL "+id+" metres="+value.bounds.size.ToString("F4")+" rootOffset="+value.bounds.center.ToString("F4")+" grossKg="+value.WeightKg.ToString("0.##")+" source="+value.Spec.source);
             }
-            return new PackingItem{instanceId=key,itemId=id,bounds=value.bounds,measuredWeightKg=value.measuredWeightKg,specification=value.specification,hasTopSupport=value.hasTopSupport,topSupportBounds=value.topSupportBounds};
+            return new PackingItem{instanceId=key,itemId=id,bounds=value.bounds,measuredWeightKg=value.measuredWeightKg,specification=value.specification,hasTopSupport=value.hasTopSupport,topSupportBounds=value.topSupportBounds,hasBottomSupport=value.hasBottomSupport,bottomSupportBounds=value.bottomSupportBounds};
         }
         private static List<PackingItem> Items(IReadOnlyList<string> equipment,IReadOnlyList<string> cargo,IEnumerable<string> packages)
         {
@@ -92,24 +92,24 @@ namespace Guochao.Editor
         private static void CheckCareer(CareerDefinition career)
         {
             var run=new RunState(4,Profile(career));
-            run.LoadValidator=(equipment,cargo)=>VehiclePacking.Plan(Items(equipment,cargo,run.Supplies.Keys),geometry).FullyValidated?"":"Measured vehicle packing rejected";
-            Plan(career.id+" baseline",run.LoadedEquipment,run.Cargo,run.Supplies.Keys);
+            run.LoadValidator=(equipment,cargo)=>VehiclePacking.Plan(Items(equipment,cargo,run.PackingSupplies),geometry).FullyValidated?"":"Measured vehicle packing rejected";
+            Plan(career.id+" baseline",run.LoadedEquipment,run.Cargo,run.PackingSupplies);
             while(run.HasUnloadedEquipment)
             {
                 Need(run.Act("StovePickup",true),"Starter pickup failed");string id=run.HeldEquipmentId;
                 if(!run.Act("HomeCart",true))
                 {
-                    var proposed=new List<string>(run.LoadedEquipment){id};Plan(career.id+" blocked loading "+id,proposed,run.Cargo,run.Supplies.Keys);
+                    var proposed=new List<string>(run.LoadedEquipment){id};Plan(career.id+" blocked loading "+id,proposed,run.Cargo,run.PackingSupplies);
                     throw new InvalidOperationException("Initial load rejected "+id);
                 }
             }
-            Plan(career.id+" all initial",run.LoadedEquipment,run.Cargo,run.Supplies.Keys);
+            Plan(career.id+" all initial",run.LoadedEquipment,run.Cargo,run.PackingSupplies);
             Need(run.Act("HomeExit",true),"Departure failed");
             OpeningProcurementPlan recommendation=OpeningProcurementPlan.For(run);
             var owned=new HashSet<string>(run.LoadedEquipment);owned.UnionWith(run.Cargo);owned.UnionWith(run.Cart);owned.UnionWith(run.Supplies.Keys);
             var buy=new List<string>();foreach(string id in recommendation.supplies)if(!owned.Contains(id))buy.Add(id);
             foreach(string id in recommendation.shelves)if(!owned.Contains(id))buy.Add(id);
-            int recipe=recommendation.menu=="料理盖饭"?1:recommendation.menu=="冰镇酸梅汤"?5:recommendation.menu=="鱼蛋热汤"?3:0;
+            int recipe=recommendation.recipeIndex;
             foreach(string id in buy)
             {
                 bool ok=SupplyCatalog.Find(id)!=null?run.AddSupply(id):run.Act(GameCatalog.Find(id).anchor,true,true);
@@ -117,11 +117,11 @@ namespace Guochao.Editor
             }
             int before=run.CashCents,total=run.CartTotalCents;Need(total<=before,"Cannot afford actual opening recipe");
             // RunState checks pending equipment and packages as cargo before committing.
-            Plan(career.id+" pending procurement",run.LoadedEquipment,buy,run.Supplies.Keys);
+            Plan(career.id+" pending procurement",run.LoadedEquipment,buy,run.PackingSupplies);
             Need(run.Act("Cashier",true),"Cannot enter checkout");run.Tick(run.CheckoutDuration);
             Need(run.Paid&&run.CashCents==before-total,"Payment/preflight failed: "+run.Message);
             Need(run.Act("MarketCart",true),"Final loading failed: "+run.Message);
-            Plan(career.id+" stocked",run.LoadedEquipment,run.Cargo,run.Supplies.Keys);
+            Plan(career.id+" stocked",run.LoadedEquipment,run.Cargo,run.PackingSupplies);
             Need(run.Act("MarketExit",true)&&run.Phase==GamePhase.SiteSelection,"No site selection");
             var mapping=new GameObject("RealBusinessMapping");
             try
@@ -136,7 +136,7 @@ namespace Guochao.Editor
         }
         private static void CheckRejections()
         {
-            Need(ContainerSpec.Bag().columns==2&&ContainerSpec.Bag().rows==3&&ContainerSpec.ShoppingCart().columns==3&&ContainerSpec.ShoppingCart().rows==3,"Source backpack/cart grids");
+            Need(ContainerSpec.Bag().columns==2&&ContainerSpec.Bag().rows==3&&ContainerSpec.ShoppingCart().columns==3&&ContainerSpec.ShoppingCart().rows==6,"Source backpack / tuned cart grids");
             Need(!ContainerSpec.Bag().Allows(PackingCatalog.Find("B04")),"Heavy core must not fit bag tag");
             Need(ContainerSpec.UnderBay().requiresUpgrade,"Under-bay falsely free");
             var tooHeavy=Item("heavy","B04");tooHeavy.measuredWeightKg=101;

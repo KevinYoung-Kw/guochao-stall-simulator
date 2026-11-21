@@ -633,8 +633,8 @@ namespace Guochao
         {
             switch (id)
             {
-                case "收纳达人": return "购物车 9 → 12 格";
-                case "丢三落四": return "购物车 9 → 6 格";
+                case "收纳达人": return "购物车 18→24 格";
+                case "丢三落四": return "购物车 18→12 格";
                 case "心灵手巧": return "搬运耗时减少约 1/3";
                 case "笨手笨脚": return "搬运耗时翻倍";
                 case "嗜睡": return "早晨整备减少 10 秒";

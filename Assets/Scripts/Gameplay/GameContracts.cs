@@ -43,7 +43,7 @@ namespace Guochao
         public bool canToggleCart;
         public bool isRunning;
         public string cartPrompt = "";
-        public int cartCapacity = 9;
+        public int cartCapacity = 18;
         public string careerName = "";
         public int dayIndex=1;
     }

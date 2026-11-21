@@ -52,7 +52,7 @@ namespace Guochao
         public readonly Dictionary<string,int> Supplies = new Dictionary<string,int>();
         public string HeldEquipmentId { get; private set; } = "";
         public string ActiveHomeEquipment => HomeEquipment.Find(id=>!LoadedEquipment.Contains(id))??"";
-        public int CartCapacity => Profile?.CartCapacity??9;
+        public int CartCapacity => Profile?.CartCapacity??18;
         public int CartCellsUsed => ShoppingBasketLayout.UsedCells(Cart);
         public bool CanFitCart(string id)
         {var proposed=new List<string>(Cart);proposed.Add(id);return ShoppingBasketLayout.CanFit(proposed,CartCapacity);}

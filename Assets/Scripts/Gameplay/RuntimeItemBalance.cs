@@ -13,6 +13,8 @@ namespace Guochao
             {
                 case "E01":return 5; case "E02":return 1.2f; case "E03":return 12;
                 case "E08":return 8;case "E10":return 1.8f;case "E15":return 4;
+                // Explicit prototype estimate for E13 loudspeaker (not source data).
+                case "E13":return .8f;
                 case "RiceBucket":return 5;
                 case "rice":return 6;case "meat":return 4;case "egg":return 3;
                 case "dough":return 5;case "skewer":return 5;case "prepared":return 10;
@@ -21,6 +23,11 @@ namespace Guochao
                 case "egg_small":return 1;case "seasoning_small":return 1.2f;
                 // Same transport tuning as the 15-portion / 5 kg dough carton.
                 case "dough_small":return 5f/3f;
+                // Scaled from existing full-carton weights by portion ratio:
+                // skewer 5kg*(5/15), prepared 10kg*(3/30), fruit 5kg*(5/20).
+                case "skewer_small":return 5f/3f;
+                case "prepared_small":return 1;
+                case "fruit_small":return 1.25f;
             }
             if(id.StartsWith("U"))return .35f;
             if(id.StartsWith("P"))return .6f;
