@@ -194,7 +194,7 @@ namespace Guochao
                 categoryButtons.Add(tab); categoryLabels.Add(label); categoryMarks.Add(mark);
             }
 
-            TextAt(board, "TraitBrowseHint", 655, 112, 360, 52, 23, Muted, "滚动查看更多 · 点选加入", false, TextAnchor.MiddleRight);
+            TextAt(board, "TraitBrowseHint", 655, 112, 360, 52, 23, Muted, "滚动查看 · 点击特质加入", false, TextAnchor.MiddleRight);
             traitScroll = CreateScroll(board, "Traits", 46, 178, 976, 326, out traitContent);
 
             RectTransform detailBar = CreationMenuArt.Panel(board, "DetailBar", 46, 515, 976, 78, CreationMenuArt.Sheet.Navy);
@@ -673,7 +673,7 @@ namespace Guochao
             if (trait == null)
             {
                 detailName.text = "搭配特质";
-                detailEffect.text = "点选加入，已选栏可直接移除。";
+                detailEffect.text = "点选自选特质，再点一次取消。";
                 detail.text = category == "positive" ? "长处消耗点数，选择适合自己的起步优势。"
                     : category == "negative" ? "短板补充点数，留意它会带来的影响。"
                     : "爱好规划为起步手艺，本版效果待接入。";
@@ -711,7 +711,7 @@ namespace Guochao
             Image shade = modal.gameObject.AddComponent<Image>(); shade.color = CampaignUI.WithAlpha(Ink, .84f); shade.raycastTarget = true;
             RectTransform paper = CampaignUI.Paper(modal, "A fresh account book", new Vector2(760, 430), Paper);
             CampaignUI.Text(paper, "另开一本新的账", new Vector2(0, 133), new Vector2(654, 66), 34, Ink, TextAnchor.MiddleCenter, true);
-            CampaignUI.Text(paper, "已有经营进度。开始第一天后改用新进度，旧进度会留作备份。", new Vector2(0, 43), new Vector2(640, 94), 24, Muted, TextAnchor.MiddleCenter);
+            CampaignUI.Text(paper, "开始第一天将启用新进度，旧进度会备份。", new Vector2(0, 43), new Vector2(640, 94), 24, Muted, TextAnchor.MiddleCenter);
             Button back = CampaignUI.Button(paper, "返回 · 保留当前经营", new Vector2(-181, -111), new Vector2(322, 64), CancelReplacement);
             CampaignUI.Button(paper, "新建经营 · 从第一天开始", new Vector2(181, -111), new Vector2(322, 64), () => { replacementConfirmed = true; Close(true); }, true);
             replacementFocus = new CampaignFocusScope(modal); CampaignUI.Focus(back);

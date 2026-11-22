@@ -63,13 +63,14 @@ namespace Guochao
             flow=owner;state=snapshot;if(flow?.Run==null)return;
             bool returnAvailable=false;
             for(int i=0;i<flow.Run.Cart.Count&&!returnAvailable;i++)returnAvailable=flow.CanReturnItem(i);
-            string nextStamp=string.Join("|",flow.Run.Cart)+"/"+string.Join("|",flow.Run.Cargo)+":"+state.paid+":"+state.cash+":"+state.targetId+":"+state.primaryEnabled+":"+state.checkoutInProgress+":"+returnAvailable+":"+state.cartCapacity;
+            string nextStamp=string.Join("|",flow.Run.Cart)+"/"+string.Join("|",flow.Run.Cargo)+":"+state.paid+":"+state.cash+":"+state.targetId+":"+state.primaryEnabled+":"+state.checkoutInProgress+":"+returnAvailable+":"+state.cartCapacity+":"+state.cartCellsUsed+":"+state.cartCount;
             if(nextStamp!=stamp){stamp=nextStamp;if(state.cartCount==0&&state.loaded)mode=1;else if(state.checkoutInProgress)mode=0;Rebuild();}
             if(state.checkoutInProgress)
             {
                 status.text="收银中 · 尚未扣款";status.color=rust;
                 progress.rectTransform.sizeDelta=new Vector2(444*(1-Mathf.Clamp01(state.checkoutRemaining/Mathf.Max(.01f,state.checkoutDuration))),4);
                 footnote.text="请留在柜台 · 剩余 "+state.checkoutRemaining.ToString("0.0")+" 秒\n离开会中断，本次不扣款";
+                footnote.color=ink;footnote.fontStyle=FontStyle.Normal;
             }
             else progress.rectTransform.sizeDelta=Vector2.zero;
         }
@@ -104,7 +105,9 @@ namespace Guochao
             nextLabel.text=next.interactable?"下页":"—";nextLabel.color=ink;
             pager.gameObject.SetActive(true);pager.text=grid?"篮格 "+(page+1)+" / "+pages:audit.lines.Length==0?(loaded?"还没有商品装上车":"到货架取货，再放进购物篮"):"第 "+(page+1)+" / "+pages+" 页 · "+audit.lines.Length+" 种商品";
             total.text=(loaded?"装车已付  ":state.paid?"本批已付  ":"本批应付  ")+CommerceReceiptData.Money(audit.totalCents);
-            footnote.text=grid?"购物篮用于选货 · 摊车容量另算":loaded?"货物已在三轮车上 · 可继续采购或出发":state.paid?"付款完成 · 到门外三轮车旁按 E 装车":state.cartCount==0?"先挑选商品 · 只有付款才会扣现金":"单价为实际结账价 · 到对应货架可放回";
+            bool basketFull=!loaded&&!state.paid&&!state.checkoutInProgress&&state.cartCount>0&&state.cartCapacity>0&&state.cartCellsUsed>=state.cartCapacity;
+            footnote.text=basketFull?"购物篮已满 · 推到收银台按 E\n选择要结账的商品":grid?"购物篮用于选货 · 摊车容量另算":loaded?"货物已在三轮车上 · 可继续采购或出发":state.paid?"付款完成 · 到门外三轮车旁按 E 装车":state.cartCount==0?"先挑选商品 · 只有付款才会扣现金":"单价为实际结账价 · 到对应货架可放回";
+            footnote.color=basketFull?rust:ink;footnote.fontStyle=basketFull?FontStyle.Bold:FontStyle.Normal;
         }
         private static RectTransform Rect(RectTransform parent,string name,float x,float y,float w,float h)
         {var r=new GameObject(name,typeof(RectTransform)).GetComponent<RectTransform>();r.SetParent(parent,false);r.anchorMin=r.anchorMax=r.pivot=new Vector2(0,1);r.anchoredPosition=new Vector2(x,-y);r.sizeDelta=new Vector2(w,h);return r;}

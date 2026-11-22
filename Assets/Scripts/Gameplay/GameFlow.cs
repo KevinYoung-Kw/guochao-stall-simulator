@@ -610,7 +610,7 @@ namespace Guochao
             if(run.Paid&&run.Cart.Count>0)return "这批货已付款，先到摊车边装货";
             if(focus=="Cashier"&&run.Cart.Count==0)return "购物车空着，先取想买的货";
             if(focus=="MarketCart"&&!run.Paid)return "未付款商品先到收银台勾选结账";
-            if(focus=="MarketExit"&&run.Cart.Count>0)return "先处理购物车里的货，可只结账其中一部分";
+            if(focus=="MarketExit"&&run.Cart.Count>0)return "推车到收银台按 E，挑选要结账的货";
             if(focus=="HomeCart"&&!run.HoldingStove)return "手中没有家当，可回屋拿取或走向出口";
             foreach(ItemDefinition item in GameCatalog.Items)if(item.anchor==focus)
             {
@@ -657,7 +657,7 @@ namespace Guochao
             if (run.Phase == GamePhase.Error) return "资源导入错误";
             if (run.Phase == GamePhase.Complete) return "采购准备完成";
             if (run.Phase == GamePhase.Home) return run.StoveLoaded ? "走近门外出发点，前往超市" : run.HoldingStove ? "把手中的灶台搬到车边" : "走到设备前，抱起 "+CharacterCatalog.EquipmentName(run.ActiveHomeEquipment);
-            if (!string.IsNullOrEmpty(run.HeldGrocery)) return "抱着原料走回购物车，靠近篮边按 E 放入";
+            if (!string.IsNullOrEmpty(run.HeldGrocery)) return "抱着货走到购物车篮边，按 E 放进去";
             if (run.Loaded) return "原料已装车，走近出口准备出摊";
             if (run.CheckoutInProgress) return "人工收银服务中；离开柜台会中断排队";
             if (run.Paid) return "已付款待装车，走到室外摊车旁";

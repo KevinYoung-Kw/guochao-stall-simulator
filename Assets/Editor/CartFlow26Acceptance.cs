@@ -75,6 +75,24 @@ namespace Guochao.Editor
                         Need(run.Cart[overlap]=="B04","cross-page item changed");var ui=Ui(run,out var flow,true);Get<Button>(ui,"gridTab").onClick.Invoke();Get<Button>(ui,"next").onClick.Invoke();var images=Get<Image[]>(ui,"cellIcons");int first=Array.FindIndex(owner,12,x=>x==overlap)-12;Need(first>=0&&images[first].enabled&&images[first].sprite!=null,"cross-page first icon missing");
                     }finally{SupplyCatalog.Items[0]=a;SupplyCatalog.Items[1]=b;}
                 });
+                Case("full basket footnote hint across tabs, return, and checkout",()=>{
+                    var run=Market();Fill(run,18);Need(run.CartCellsUsed==18&&run.CartCapacity==18&&!run.Paid,"expected 18/18 unpaid cart");
+                    var ui=Ui(run,out var flow);var footnote=Get<Text>(ui,"footnote");
+                    Action<string> checkFit=stage=>{float h=footnote.rectTransform.rect.height,ph=footnote.preferredHeight;Need(h>0f&&ph>0f&&ph<=h,stage+" footnote preferredHeight="+ph+", rectHeight="+h);};
+                    Action<string> checkFullHint=stage=>{Need(footnote.text.Contains("购物篮已满")&&footnote.text.Contains("按 E")&&footnote.text.Contains("选择要结账的商品"),stage+" full hint text: "+footnote.text);Need(footnote.color==Get<Color>(ui,"rust")&&footnote.fontStyle==FontStyle.Bold,stage+" full hint style");checkFit(stage);};
+                    checkFullHint("full basket");
+                    Get<Button>(ui,"gridTab").onClick.Invoke();checkFullHint("grid tab");
+                    Get<Button>(ui,"loadedTab").onClick.Invoke();Need(!footnote.text.Contains("购物篮已满")&&footnote.color==Get<Color>(ui,"ink")&&footnote.fontStyle==FontStyle.Normal,"loaded tab footnote: "+footnote.text);checkFit("loaded tab");
+                    Get<Button>(ui,"basketTab").onClick.Invoke();checkFullHint("basket tab");
+                    Need(run.ReturnItem(17,"SupplyCounter",true)&&run.CartCellsUsed==17&&run.Cart.Count==17,"return item");
+                    ui.Present(flow,Snapshot(run));Need(!footnote.text.Contains("购物篮已满")&&footnote.color==Get<Color>(ui,"ink")&&footnote.fontStyle==FontStyle.Normal,"after return footnote: "+footnote.text);checkFit("after return");
+                    Need(run.AddSupply("rice_small")&&run.CartCellsUsed==18&&run.Cart.Count==18,"refill item");
+                    ui.Present(flow,Snapshot(run));checkFullHint("refilled basket");
+                    Need(run.ConfirmCheckoutSelection(new[]{"rice_small"}),run.Message);Need(run.CheckoutInProgress,"checkout not started");
+                    ui.Present(flow,Snapshot(run));Need(footnote.text.Contains("请留在柜台")&&!footnote.text.Contains("购物篮已满")&&footnote.color==Get<Color>(ui,"ink")&&footnote.fontStyle==FontStyle.Normal,"checkout footnote: "+footnote.text);checkFit("checkout in progress");
+                    run.Tick(run.CheckoutDuration+.01f,true);Need(run.Paid&&!run.CheckoutInProgress,"checkout not completed");
+                    ui.Present(flow,Snapshot(run));Need(footnote.text.Contains("付款完成")&&!footnote.text.Contains("购物篮已满")&&footnote.color==Get<Color>(ui,"ink")&&footnote.fontStyle==FontStyle.Normal,"paid footnote: "+footnote.text);checkFit("paid");
+                });
             }
             catch(Exception e){checks.Add(new Check{name="fixture",detail=e.ToString(),passed=false});}
             finally{Application.logMessageReceived-=Capture;foreach(var r in roots)if(r)UnityEngine.Object.DestroyImmediate(r);roots.Clear();}

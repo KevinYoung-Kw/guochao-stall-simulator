@@ -913,11 +913,11 @@ namespace Guochao
                 else if(lane.step==KitchenStep.Heating)
                 {
                     // FREEDOM19：自由批次加热完成；V04 自动炒锅保留既有红利——
-                    // 现炒自动出锅（品质见 FinishFreeUtensil），其余进 8 秒真实绿区。
+                    // 现炒自动出锅（品质见 FinishFreeUtensil），其余进 20 秒真实绿区。
                     if(lane.freeBatch!=null)
                     {
                         if(lane.freeBatch.vesselId=="V04"&&lane.freeBatch.method==FreeKitchenRules.MethodStirFry){FinishFreeUtensil(lane);}
-                        else{lane.step=KitchenStep.Utensil;lane.toolClicks=0;lane.remaining=lane.duration=8f;Message="火候正好，点击锅具出锅。";}
+                        else{lane.step=KitchenStep.Utensil;lane.toolClicks=0;lane.remaining=lane.duration=FreeHotWindowSeconds;Message="火候正好，点击锅具出锅。";}
                     }
                     else
                     {
@@ -1004,9 +1004,14 @@ namespace Guochao
             if(lane.step==KitchenStep.Prep)return lane.remaining+(Recipes[lane.recipeIndex].cold?0:HeatTime(Recipes[lane.recipeIndex]));
             return float.PositiveInfinity;
         }
+        private const float FreeHotWindowSeconds = 20f;
         public float GreenWindowSeconds(int laneIndex)
         {
-            if(laneIndex<0||laneIndex>=Lanes.Length)return 0;int recipe=Lanes[laneIndex].recipeIndex;
+            if(laneIndex<0||laneIndex>=Lanes.Length)return 0;
+            KitchenLane lane=Lanes[laneIndex];
+            if(lane.freeBatch!=null&&!FreeKitchenRules.IsColdMethod(lane.freeBatch.method))
+                return lane.step==KitchenStep.Utensil?lane.duration:FreeHotWindowSeconds;
+            int recipe=lane.recipeIndex;
             return Recipes[recipe].greenSeconds+(IsWokStyle(recipe)&&Equipment.Contains("U02")?1.5f:0);
         }
         private void SpawnOrder()

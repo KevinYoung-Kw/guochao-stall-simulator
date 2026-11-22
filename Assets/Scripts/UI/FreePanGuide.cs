@@ -122,7 +122,7 @@ namespace Guochao
             return "";
         }
 
-        public static Readout Read(BusinessSession session,int laneIndex)
+        public static Readout Read(BusinessSession session,int laneIndex,string carriedPackageId="")
         {
             var result=new Readout();
             if(session==null||laneIndex<0||laneIndex>=session.Lanes.Length)return result;
@@ -232,9 +232,32 @@ namespace Guochao
                     result.next=coldUtensil?"点锅完成调制":"点锅翻炒或起锅";
                     break;
                 case KitchenStep.Season:
-                    result.state="待调味";
-                    result.next=lane.seasoned?"已调味 · 选包材装台":"点调料瓶调味，再选包材";
+                {
+                    var product=session.ProductAtLane(laneIndex);
+                    bool hasAdaptedPackage=false;
+                    bool carriedAdapted=false;
+                    if(product!=null)
+                    {
+                        foreach(string id in session.AvailableLanePackages(laneIndex))
+                        {
+                            if(session.Count(id)<=0)continue;
+                            hasAdaptedPackage=true;
+                            if(!string.IsNullOrEmpty(carriedPackageId)&&id==carriedPackageId)
+                                carriedAdapted=true;
+                        }
+                    }
+                    bool canEmergencyBag=!hasAdaptedPackage&&product!=null&&session.CanUseEmergencyBag(product);
+                    result.state=lane.seasoned?"已调味":(hasAdaptedPackage?"可装餐":"待调味");
+                    if(carriedAdapted&&session.HeldMeal==null)
+                        result.next=lane.seasoned?"已调味 · 点锅装餐":"点锅装餐";
+                    else if(canEmergencyBag)
+                        result.next=lane.seasoned?"可用应急袋装餐":"可调味，也可直接用应急袋装餐";
+                    else if(!hasAdaptedPackage)
+                        result.next=lane.seasoned?"已调味 · 缺适配包材":"可调味 · 缺适配包材";
+                    else
+                        result.next=lane.seasoned?"已调味 · 选包材装餐":"可调味，或选包材装餐";
                     break;
+                }
                 case KitchenStep.Pack:
                     result.state="待装台";
                     result.next="选适配包材装台出餐";

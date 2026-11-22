@@ -177,7 +177,7 @@ namespace Guochao
             bool cold=FreeKitchenRules.IsColdMethod(batch.method);
             lane.seasoned=cold||batch.method==FreeKitchenRules.MethodReheat;
             lane.step=lane.seasoned?KitchenStep.Pack:KitchenStep.Season;lane.remaining=0;
-            Message=product.DisplayName+"出锅（"+portions+" 份）· "+(cold?"可装台出餐。":"调味后可装台出餐。");
+            Message=product.DisplayName+"出锅（"+portions+" 份）· "+(lane.seasoned?"可装台出餐。":"可调味，也可选包材装餐。");
             Revision++;return true;
         }
 
@@ -195,7 +195,7 @@ namespace Guochao
             if(product==null||lane.batchRemaining<=0)return Reject("锅里还没有可盛出的熟食。");
             bool cold=FreeKitchenRules.IsColdMethod(lane.freeBatch.method);
             lane.step=lane.seasoned||cold?KitchenStep.Pack:KitchenStep.Season;lane.remaining=0;
-            Message=lane.seasoned||cold?"盛出已熟余份，可装台出餐。":"已盛出熟食，完成调味后封装。";
+            Message=lane.seasoned||cold?"盛出已熟余份，可装台出餐。":"已盛出熟食，可调味，也可选包材装餐。";
             Revision++;return true;
         }
 
