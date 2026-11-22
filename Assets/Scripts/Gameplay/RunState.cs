@@ -251,7 +251,7 @@ namespace Guochao
             {if(EquipmentVisualFactory.IsHeavy(item.id))state.HomeEquipment.Add(item.id);else state.LoadedEquipment.Add(item.id);}
             foreach(var item in campaign.stock)if(item.quantity>0)state.Supplies[item.id]=item.quantity;
             state.StoveLoaded=state.HomeEquipment.Count==0;
-            state.Message="第 "+campaign.dayIndex+" 天 · 昨晚收好的家当和余料都在，先把今天要用的重器搬上车。";
+            state.Message=state.HomeEquipment.Count==0?"第 "+campaign.dayIndex+" 天 · 家当已备好，可以出发采购。":"第 "+campaign.dayIndex+" 天 · 先把要用的设备搬上车。";
             return state;
         }
 
@@ -297,7 +297,7 @@ namespace Guochao
             {
                 bool leftStove = !StoveLoaded;
                 EnterMarket();
-                Message = leftStove ? "整备时间到：已装车物品带出，未装灶台留在屋内。" : "整备时间到：B04 已随车带到超市。";
+                Message = leftStove ? "整备时间到，未装车的设备留在家里。" : "整备时间到，家当已随车带到超市。";
             }
             else SettleTimeout();
         }
@@ -312,7 +312,7 @@ namespace Guochao
                 switch (target)
                 {
                     case "StovePickup":
-                        if (StoveLoaded) return Reject("灶台已经装车。" );
+                        if (StoveLoaded) return Reject("设备都已装车。");
                         if (HoldingStove)
                         {Message="已把"+CharacterCatalog.EquipmentName(HeldEquipmentId)+"放回原位。";HoldingStove=false;HeldEquipmentId="";return true;}
                         HoldingStove = true;
@@ -320,7 +320,7 @@ namespace Guochao
                         Message = "已抱起"+CharacterCatalog.EquipmentName(HeldEquipmentId)+"，到门外车边装车。";
                         return true;
                     case "HomeCart":
-                        if (!HoldingStove) return Reject(StoveLoaded ? "B04 已装车，可到出发点前往超市。" : "双手为空，请先在屋内拿取灶台。" );
+                        if (!HoldingStove) return Reject(StoveLoaded ? "设备已装车，去出发点吧。" : "先去屋里搬要带的设备。");
                         var proposedEquipment=new List<string>(LoadedEquipment);proposedEquipment.Add(HeldEquipmentId);
                         string homeError=LoadValidator?.Invoke(proposedEquipment,Cargo);
                         if(!string.IsNullOrEmpty(homeError))return Reject(homeError);
@@ -329,7 +329,7 @@ namespace Guochao
                         Message = HasUnloadedEquipment?"设备已装车，屋内还有核心家当可搬。":"家当已装车，走近出发点前往超市。";
                         return true;
                     case "HomeExit":
-                        if (HoldingStove) return Reject("请先在车边放下手中的灶台。" );
+                        if (HoldingStove) return Reject("先把手里的设备装车或放回原位。");
                         EnterMarket();
                         return true;
                 }
@@ -789,9 +789,7 @@ namespace Guochao
             Cart.Clear();
             Paid = false;
             TimeoutSettlement = true; Phase = Profile==null?GamePhase.Complete:GamePhase.SiteSelection;
-            string reason = Message;
             Message = "采购时间到：本次结账未完成，购物车 " + returned + " 件已退回货架，未扣款。";
-            if (!string.IsNullOrEmpty(reason)) Message += "（" + reason + "）";
             if (returnedHeld) Message += " 手中尚未入篮的箱子已放回货架，未扣款。";
         }
 

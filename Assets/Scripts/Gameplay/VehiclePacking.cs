@@ -23,7 +23,12 @@ namespace Guochao
         public bool Allows(ItemPackingSpec item)=>item!=null&&(allowed&item.tags)!=0;
         public static ContainerSpec Bag()=>new ContainerSpec("bag","随身挎包",2,3,PackingTag.Small|PackingTag.Ingredient|PackingTag.Seasoning|PackingTag.Packaging,"设定 S2：2×3，可扩至3×3；未给固定承重");
         public static ContainerSpec ShoppingCart()=>new ContainerSpec("shopping_cart","超市购物车",3,6,PackingTag.All,"用户反馈调参：3×6（原文设定 S2：3×3），允许全部标签；未给固定承重");
-        public static ContainerSpec Trike()=>new ContainerSpec("trike","Lv.1 车斗",4,6,PackingTag.Core|PackingTag.Ingredient|PackingTag.Cooler|PackingTag.External|PackingTag.DeckVessel|PackingTag.Energy|PackingTag.Vessel,"总表载具：4×6、100kg；能源库允许气罐/电瓶放车斗"){weightLimitKg=100};
+        public static ContainerSpec Trike(int level=1)
+        {
+            VehicleUpgradeSpec spec=VehicleUpgradeRules.Get(level);
+            if(spec==null)throw new ArgumentException("该载具等级尚未接入，现有等级已保留");
+            return new ContainerSpec("trike","Lv."+spec.Level+" 车斗",spec.Columns,spec.Rows,PackingTag.Core|PackingTag.Ingredient|PackingTag.Cooler|PackingTag.External|PackingTag.DeckVessel|PackingTag.Energy|PackingTag.Vessel,"总表载具："+spec.Columns+"×"+spec.Rows+"、"+spec.WeightLimitKg.ToString("0.##")+"kg；能源库允许气罐/电瓶放车斗"){weightLimitKg=spec.WeightLimitKg};
+        }
         public static ContainerSpec UnderBay()=>new ContainerSpec("under_bay","能源暗仓",2,2,PackingTag.Energy,"设定 S2：2×2，改装解锁"){requiresUpgrade=true,spoilageMultiplier=-1};
         public static ContainerSpec ToolRack()=>new ContainerSpec("tool_rack","工具挂杆",6,1,PackingTag.Tool,"设定 S2：6钩，小工具不占台面网格"){spoilageMultiplier=-1};
         public static ContainerSpec Packaging()=>new ContainerSpec("packaging","包材弹夹槽",3,1,PackingTag.Packaging,"设定 S2：3组×50，可升级100"){stackUnits=50,spoilageMultiplier=-1};
@@ -165,7 +170,7 @@ namespace Guochao
 
         // These dimensions are measured for the current CartAI, not inferred from
         // the logical 4×6 cells. Positions and heading come from imported nodes.
-        public static VehiclePackingGeometry FromCartAI(Transform vehicle)
+        public static VehiclePackingGeometry FromCartAI(Transform vehicle,int level=1)
         {
             Transform deck=Find(vehicle,"CartDeck"),stove=Find(vehicle,"StoveLoadedPlacement");
             Transform rear0=Find(vehicle,"CargoSlot0"),rear1=Find(vehicle,"CargoSlot1"),rear2=Find(vehicle,"CargoSlot2");
@@ -174,10 +179,12 @@ namespace Guochao
             Vector3 longitudinal=rear-deck.position;longitudinal.y=0;
             if(longitudinal.sqrMagnitude<.01f)throw new ArgumentException("Cannot derive vehicle direction from coincident deck/rear anchors.");
             var g=new VehiclePackingGeometry{origin=deck.position,rotation=Quaternion.LookRotation(longitudinal.normalized,Vector3.up)};
-            ContainerSpec trike=ContainerSpec.Trike();
+            ContainerSpec trike=ContainerSpec.Trike(level);
+            g.vehicleWeightLimitKg=trike.weightLimitKg;
             // art-v8/cart-rack/build_rack.py: usable deck source x .37..1.51,
             // y ±.42; measured rear clear interior .432 ×1.152, floor at anchors.
-            g.AddZone(new PackingZone("main_deck","trike",new Bounds(new Vector3(0,.7f,0),new Vector3(.84f,1.4f,1.14f)),trike.allowed),trike);
+            float deckWidth=.84f*trike.columns/4f;
+            g.AddZone(new PackingZone("main_deck","trike",new Bounds(new Vector3((.84f-deckWidth)*.5f,.7f,0),new Vector3(deckWidth,1.4f,1.14f)),trike.allowed),trike);
             Vector3 rearLocal=g.ToLocal(rear);float rearHeight=deck.position.y-rear.y-.025f;
             if(rearHeight<=0)throw new ArgumentException("Rear basket floor must be below the measured deck.");
             g.AddZone(new PackingZone("rear_basket","trike",new Bounds(rearLocal+Vector3.up*(rearHeight*.5f),new Vector3(1.152f,rearHeight,.432f)),PackingTag.Ingredient),trike);

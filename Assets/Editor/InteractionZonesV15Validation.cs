@@ -105,6 +105,9 @@ namespace Guochao.Editor
             Case("candidate verdicts are self-consistent (primary==tier0, primary=>inRange)", ConsistencyGrid);
             Case("held grocery: same-shelf put-back executes, other shelf state-blocked, basket legal", HeldGroceryGate);
             Case("focus hysteresis keeps an actionable focus over a marginal challenger", FocusHysteresis);
+            DestroyFixture();yield return null;Build(true);yield return null;Physics.SyncTransforms();
+            Case("shopping-cart side grip, distance, wall and no snap", GripZone);
+            DestroyFixture();yield return null;Build(true);yield return null;Physics.SyncTransforms();Case("cashier basket distance, actionable feedback and wall", CashierBasketZone);
             DestroyFixture(); yield return null;
         }
 
@@ -328,6 +331,73 @@ namespace Guochao.Editor
             return target + ": " + actionable.Count + " usable spots across " + quadrants.Count + " side quadrants, radius " + zone.frontMinRadius.ToString("0.00") + "–" + zone.frontMaxRadius.ToString("0.00") + "m; no through-wall sample; no mutation";
         }
 
+        static string CashierBasketZone()
+        {
+            var w=flow.World;var p=w.Player;var m=w.ShoppingMotor;
+            Need(m!=null,"missing shopping cart");if(m.IsAttached)m.Detach();Physics.SyncTransforms();
+            Need(flow.Run.AddSupply("rice_small"),"cannot add real priced item");w.Sync(flow.Run);Physics.SyncTransforms();
+            var prop=typeof(GameFlow).GetProperty("MarketTargets",BindingFlags.NonPublic|BindingFlags.Static);var targets=(string[])prop.GetValue(null);
+            Vector3 spot=Vector3.zero;bool found=false;
+            foreach(Vector3 candidate in Ring("Cashier",new[]{.7f,.9f,1.1f,1.3f,1.5f},10)){
+                if(!BodyClear(candidate))continue;var c=w.EvaluateInteraction("Cashier",candidate);
+                if(c.blockedBy!="basket-away"||w.NearestAt(targets,candidate)!="Cashier")continue;
+                spot=candidate;found=true;break;
+            }
+            Need(found,"no reachable cashier focus with basket far");p.transform.position=spot;Physics.SyncTransforms();flow.PrimaryAction();
+            Need(flow.Run.Message.Contains("把购物车推到收银台旁"),"missing basket-away checkout hint: "+flow.Run.Message);
+            Vector3 anchor=w.Anchor("Cashier");GameObject wall=GameObject.CreatePrimitive(PrimitiveType.Cube);wall.name="Cashier test wall";wall.layer=WorldRuntime.EnvironmentLayer;
+            wall.transform.position=(spot+anchor)*.5f+Vector3.up*.9f;Vector3 direction=anchor-spot;direction.y=0;wall.transform.rotation=Quaternion.LookRotation(direction,Vector3.up);wall.transform.localScale=new Vector3(.8f,1.8f,.08f);Physics.SyncTransforms();
+            try{Need(!w.EvaluateInteraction("Cashier",spot).inRange,"cashier reachable through wall");}finally{UnityEngine.Object.DestroyImmediate(wall);Physics.SyncTransforms();}
+            var box=m.Trolley.GetComponent<BoxCollider>();float cartY=m.Trolley.position.y;bool near=false;
+            foreach(float r in new[]{.9f,1.1f,1.3f,1.5f}){
+              for(int a=0;a<360;a+=15){
+                Vector3 q=spot+Quaternion.Euler(0,a,0)*Vector3.forward*r;q.y=cartY;m.Trolley.position=q;Physics.SyncTransforms();
+                Vector3 centre=box.transform.TransformPoint(box.center),half=Vector3.Scale(box.size*.5f,box.transform.lossyScale);bool clear=true;
+                foreach(Collider hit in Physics.OverlapBox(centre,half,box.transform.rotation,WorldRuntime.EnvironmentMask,QueryTriggerInteraction.Ignore))
+                  if(hit!=box&&!hit.transform.IsChildOf(m.Trolley)){clear=false;break;}
+                if(!clear||!BodyClear(spot))continue;var c=w.EvaluateInteraction("Cashier",spot);
+                if(c.primary&&w.NearestAt(targets,spot)=="Cashier"){near=true;break;}
+              }
+              if(near)break;
+            }
+            Need(near,"no collision-free cart placement for nearby cashier");p.transform.position=spot;Physics.SyncTransforms();flow.PrimaryAction();
+            Need(flow.Run.CheckoutInProgress||flow.IsChoosingCheckout,"near cart did not begin checkout");
+            return "actual MarketWorld with scripted fixture poses: far cart shows actionable hint, wall blocks cashier, nearby collision-free cart permits checkout";
+        }
+
+        static string GripZone()
+        {
+            var w=flow.World;var p=w.Player;var m=w.ShoppingMotor;
+            Need(m!=null&&m.IsAttached,"expected initially attached shopping cart");flow.ToggleShoppingCart();Need(!m.IsAttached&&flow.Run.Message.Contains("停放"),"F park or hint failed");Physics.SyncTransforms();
+            Need(!m.IsAttached&&!m.Trolley.GetComponent<BoxCollider>().isTrigger,"cart did not park solid");
+            Vector3 stand=m.HandleStandingPoint,right=m.Facing*Vector3.right,side=Vector3.zero;bool found=false;
+            for(int a=-75;a<=75&&!found;a+=15)foreach(float sign in new[]{-1f,1f}){
+                Vector3 pos=stand+Quaternion.Euler(0,a,0)*(right*sign)*.70f;
+                if(!BodyClear(pos))continue;p.transform.position=pos;Physics.SyncTransforms();
+                if(m.CanAttach){side=pos;found=true;break;}
+            }
+            Need(found,"no unobstructed side grip at 0.70m in actual market");
+            p.transform.position=stand+right*.95f;Physics.SyncTransforms();Need(!m.CanAttach,"remote 0.95m grip allowed");flow.ToggleShoppingCart();Need(!m.IsAttached&&flow.Run.Message.Contains("把手"),"F remote grip or hint failed");
+            p.transform.position=side;Physics.SyncTransforms();
+            GameObject wall=GameObject.CreatePrimitive(PrimitiveType.Cube);wall.name="Grip test wall";wall.layer=WorldRuntime.EnvironmentLayer;
+            wall.transform.position=(side+stand)*.5f+Vector3.up*.9f;wall.transform.rotation=Quaternion.LookRotation(stand-side,Vector3.up);wall.transform.localScale=new Vector3(.6f,1.8f,.06f);Physics.SyncTransforms();
+            try{Need(!m.CanAttach,"grip allowed through wall");}finally{UnityEngine.Object.DestroyImmediate(wall);Physics.SyncTransforms();}
+            Need(m.CanAttach,"side grip did not recover after removing wall");
+            Vector3 playerBefore=p.transform.position,cartBefore=m.Trolley.position;Quaternion playerRotation=p.visual.rotation,cartRotation=m.Trolley.rotation;
+            flow.ToggleShoppingCart();Need(m.IsAttached&&flow.Run.Message.Contains("已接手"),"F side grip or hint failed");
+            Need(Vector3.Distance(playerBefore,p.transform.position)<.001f&&Vector3.Distance(cartBefore,m.Trolley.position)<.001f&&Quaternion.Angle(playerRotation,p.visual.rotation)<.1f&&Quaternion.Angle(cartRotation,m.Trolley.rotation)<.1f,"grip snapped player or cart");
+            Need(m.IsPoseClear(p.transform.position,m.Facing),"grip left an intersecting pose");
+            var axes=new[]{new Vector2(0,1),new Vector2(0,-1),new Vector2(-1,0),new Vector2(1,0)};string[] names={"W","S","A","D"};var evidence=new System.Collections.Generic.List<string>();
+            for(int k=0;k<axes.Length;k++){
+                Vector3 before=p.transform.position;Quaternion face=m.Facing;
+                for(int j=0;j<10;j++){p.DriveInput(axes[k],false,.02f);Physics.SyncTransforms();Need(m.IsPoseClear(p.transform.position,m.Facing),"collision after "+names[k]);}
+                float travel=Vector3.Dot(p.transform.position-before,face*Vector3.forward),yaw=Mathf.DeltaAngle(face.eulerAngles.y,m.Facing.eulerAngles.y);
+                Need(k==0?travel>.005f:k==1?travel<-.005f:k==2?yaw<-.5f:yaw>.5f,"axis "+names[k]+" did not move as expected; travel="+travel+" yaw="+yaw);
+                evidence.Add(names[k]+"="+travel.ToString("0.000")+"m/"+yaw.ToString("0.0")+"deg");
+            }
+            return "actual MarketWorld: fixture body position 0.70m side succeeds; 0.95m and wall fail; no transform jump; pose clear" + "; scripted DriveInput: " + string.Join(", ",evidence);
+        }
+
         // Cashier zone: the service side is decided by the physical counter,
         // not by the mean of inRange samples. Any standing spot whose reach
         // to the cashier anchor crosses an environment collider (the counter)
@@ -538,10 +608,11 @@ namespace Guochao.Editor
         static void Finish()
         {
             DestroyFixture(); Application.logMessageReceived -= Log; CampaignSaveStore.TestDirectory = previousSaveDirectory;
-            // Exactly 10 real cases are registered in Execute(); 11 was a pure
-            // fixture typo. Success still requires every case passed, no
-            // uncaught failure and zero logged errors — nothing is padded.
-            report.errors = errors.ToArray(); report.success = report.failure == "" && errors.Count == 0 && report.checks.Count == 10;
+            // Exactly 12 real cases are registered in Execute() (10 original
+            // cases, 1 shopping-cart grip safety case, plus 1 cashier basket
+            // distance/wall case). Success still requires every case passed,
+            // no uncaught failure and zero logged errors — nothing is padded.
+            report.errors = errors.ToArray(); report.success = report.failure == "" && errors.Count == 0 && report.checks.Count == 12;
             foreach (var check in report.checks) report.success &= check.passed;
             Directory.CreateDirectory(Path.GetDirectoryName(output)); File.WriteAllText(output, JsonUtility.ToJson(report, true));
             Debug.Log("INTERACTION_ZONES_V15_" + (report.success ? "PASS" : "FAIL") + " " + output);

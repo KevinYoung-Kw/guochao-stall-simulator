@@ -25,7 +25,7 @@ namespace Guochao
         }
         public void Initialize(RectTransform parent,Font typeface,Action close)
         {
-            font=typeface;root=gameObject.AddComponent<RectTransform>();root.SetParent(parent,false);root.anchorMin=root.anchorMax=root.pivot=new Vector2(0,1);root.anchoredPosition=new Vector2(29,-286);root.sizeDelta=new Vector2(500,760);
+            font=typeface;root=gameObject.AddComponent<RectTransform>();root.SetParent(parent,false);root.anchorMin=root.anchorMax=root.pivot=new Vector2(0,1);root.anchoredPosition=new Vector2(29,-286);root.sizeDelta=new Vector2(500,776);
             iconLibrary=gameObject.AddComponent<GameItemIconLibrary>();paper=StallUIArt.RoundedPaper(out paperTexture);
             Image face=gameObject.AddComponent<Image>();face.sprite=paper;face.type=Image.Type.Sliced;face.color=cream;
             var shadow=gameObject.AddComponent<Shadow>();shadow.effectColor=new Color(35/255f,56/255f,77/255f,.4f);shadow.effectDistance=new Vector2(3,-5);
@@ -50,12 +50,13 @@ namespace Guochao
                 cellIcons[i]=Rect(cell,"商品图",4,4,68,68).gameObject.AddComponent<Image>();cellIcons[i].preserveAspect=true;cellIcons[i].raycastTarget=false;
                 cellLabels[i]=TextAt(cell,"",5,5,66,66,20,muted,false,TextAnchor.MiddleCenter);
             }
-            gridCaption=TextAt(root,"",28,540,444,34,22,muted,false,TextAnchor.MiddleCenter);
-            previous=ButtonAt(root,"‹",26,575,50,39,()=>{page=Mathf.Max(0,page-1);Rebuild();});next=ButtonAt(root,"›",424,575,50,39,()=>{page++;Rebuild();});
-            pager=TextAt(root,"",84,575,332,38,21,muted,false,TextAnchor.MiddleCenter);
+            gridCaption=TextAt(root,"",28,536,444,42,26,ink,false,TextAnchor.MiddleCenter);
+            previous=ButtonAt(root,"‹",24,568,68,48,()=>{page=Mathf.Max(0,page-1);Rebuild();});previous.GetComponentInChildren<Text>(true).fontSize=26;
+            next=ButtonAt(root,"›",408,568,68,48,()=>{page++;Rebuild();});next.GetComponentInChildren<Text>(true).fontSize=26;
+            pager=TextAt(root,"",96,575,308,38,26,ink,false,TextAnchor.MiddleCenter);
             Rule(root,26,616,448);total=TextAt(root,"",28,625,444,47,29,ink,true,TextAnchor.MiddleRight);
             progress=Rect(root,"收银进度",28,679,0,4).gameObject.AddComponent<Image>();progress.color=CampaignUI.Gold;progress.raycastTarget=false;
-            footnote=TextAt(root,"",28,690,444,56,19,muted);
+            footnote=TextAt(root,"",28,690,444,84,26,ink);
         }
         public void Present(GameFlow owner,Snapshot snapshot)
         {
@@ -98,6 +99,9 @@ namespace Guochao
             }
             gridCaption.gameObject.SetActive(grid);gridCaption.text="购物篮 "+state.cartCellsUsed+" / "+state.cartCapacity+" 格";
             previous.gameObject.SetActive(pages>1);next.gameObject.SetActive(pages>1);previous.interactable=page>0;next.interactable=page+1<pages;
+            Text previousLabel=previous.GetComponentInChildren<Text>(true),nextLabel=next.GetComponentInChildren<Text>(true);
+            previousLabel.text=previous.interactable?"上页":"—";previousLabel.color=ink;
+            nextLabel.text=next.interactable?"下页":"—";nextLabel.color=ink;
             pager.gameObject.SetActive(true);pager.text=grid?"篮格 "+(page+1)+" / "+pages:audit.lines.Length==0?(loaded?"还没有商品装上车":"到货架取货，再放进购物篮"):"第 "+(page+1)+" / "+pages+" 页 · "+audit.lines.Length+" 种商品";
             total.text=(loaded?"装车已付  ":state.paid?"本批已付  ":"本批应付  ")+CommerceReceiptData.Money(audit.totalCents);
             footnote.text=grid?"购物篮用于选货 · 摊车容量另算":loaded?"货物已在三轮车上 · 可继续采购或出发":state.paid?"付款完成 · 到门外三轮车旁按 E 装车":state.cartCount==0?"先挑选商品 · 只有付款才会扣现金":"单价为实际结账价 · 到对应货架可放回";

@@ -85,7 +85,7 @@ namespace Guochao
             if(GameFlow.Instance?.Run.Profile!=null)
             {
                 loadout=gameObject.AddComponent<VehicleLoadout>();
-                loadout.Initialize(cart.transform,(id,parent)=>id.StartsWith("B")||id.StartsWith("V")||id.StartsWith("U")||id.StartsWith("E")||id.StartsWith("P")||id.StartsWith("S")||id=="RiceBucket"?EquipmentVisualFactory.Create(id,parent):MakeFood(id,parent,.36f));
+                loadout.Initialize(cart.transform,CreateLoadoutVisual);
             }
             stove = AuthoredModel("Stove", transform);
             if (phase == GamePhase.Market)
@@ -947,6 +947,9 @@ namespace Guochao
             RequiredModel(name, wrapper.transform);
             return wrapper;
         }
+
+        internal static GameObject CreateLoadoutVisual(string id, Transform parent)
+            => id.StartsWith("B")||id.StartsWith("V")||id.StartsWith("U")||id.StartsWith("E")||id.StartsWith("P")||id.StartsWith("S")||id=="RiceBucket"?EquipmentVisualFactory.Create(id,parent):MakeFood(id,parent,.36f);
 
         private static GameObject MakeFood(string id, Transform parent, float size)
         {

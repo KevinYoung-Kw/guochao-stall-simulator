@@ -14,12 +14,21 @@ namespace Guochao
         private readonly Dictionary<string,GameObject> mounted=new Dictionary<string,GameObject>();
         private Func<string,Transform,GameObject> make;
         private string signature;
+        private Transform upgradeVehicle;
+        private GameObject upgradeDeck;
+        private Material upgradeDeckMaterial;
+        private int upgradeLevel=-1;
+        private Func<int> upgradeLevelProvider;
         public PackingPlan Plan {get;private set;}
-        public void Initialize(Transform vehicle,Func<string,Transform,GameObject> factory)
+        public void Initialize(Transform vehicle,Func<string,Transform,GameObject> factory,Func<int> levelProvider=null)
         {
             make=factory;
+            upgradeVehicle=vehicle;
+            upgradeLevelProvider=levelProvider;
             VehicleContainerModules.Install(vehicle);
             geometry=VehiclePackingGeometry.FromCartAI(vehicle);
+            int level=upgradeLevelProvider!=null?upgradeLevelProvider():(GameFlow.Instance?.Campaign?.vehicleLevel??1);
+            ConfigureVehicleLevel(level,out _);
             var hidden=new GameObject("MeasuredLoadoutPrototypes");hidden.transform.SetParent(transform,false);hidden.SetActive(false);prototypes=hidden.transform;
         }
         private PackingItem Item(string key,string id)
@@ -34,6 +43,13 @@ namespace Guochao
         }
         public string Validate(IReadOnlyList<string> equipment,IReadOnlyList<string> cargo,IEnumerable<string> packages)
         {
+            int level=upgradeLevelProvider!=null?upgradeLevelProvider():(GameFlow.Instance?.Campaign?.vehicleLevel??1);
+            if(!ConfigureVehicleLevel(level,out string levelError))
+            {
+                Plan=null;
+                signature=null;
+                return levelError;
+            }
             var all=new List<PackingItem>();var keys=new List<string>();
             foreach(string id in equipment){all.Add(Item("gear_"+id,id));keys.Add("g:"+id);}
             var counts=new Dictionary<string,int>();
@@ -52,8 +68,8 @@ namespace Guochao
             string next=string.Join("|",keys);
             if(next!=signature){Plan=VehiclePacking.Plan(all,geometry,new PackingOptions{underBayUnlocked=false});signature=next;}
             if(Plan.FullyValidated)return "";
-            if(Plan.failureCode=="SearchBudgetExceeded")return "这批货暂时没找到装车方案，可先减少一部分，稍后再买。";
-            return Plan.failureCode=="Overweight"?"这批家当超过三轮车的 100 kg 承重，请减少装载。":"车上没有适合放置这批物品的空位，请减少采购或调整家当。";
+            if(Plan.failureCode=="SearchBudgetExceeded")return "这批物品暂时没找到装车方案，先少带几件再试。";
+            return Plan.failureCode=="Overweight"?"这批家当超过三轮车的 "+geometry.vehicleWeightLimitKg.ToString("0.##")+" kg 承重，请减少装载。":"车上没有适合放置这批物品的空位，请减少采购或调整家当。";
         }
         public bool Apply(string instanceId,GameObject model)
         {
@@ -79,12 +95,63 @@ namespace Guochao
         public void PresentTransport(IReadOnlyList<string> equipment,IReadOnlyList<string> cargo,IEnumerable<string> packages)
         {
             string error=Validate(equipment,cargo,packages);
-            if(!string.IsNullOrEmpty(error))throw new InvalidOperationException("Transport layout rejected: "+Plan.failureCode+" "+Plan.reason);
+            if(!string.IsNullOrEmpty(error))throw new InvalidOperationException(error);
             foreach(var p in Plan.placements)
             {
                 if(!mounted.TryGetValue(p.instanceId,out var model)){model=make(p.itemId,transform);mounted[p.instanceId]=model;}
                 p.Apply(model.transform);model.SetActive(true);
             }
+        }
+        private bool ConfigureVehicleLevel(int level,out string error)
+        {
+            if(!VehicleUpgradeRules.TryGet(level,out var tier,out error))return false;
+            if(tier.Level==upgradeLevel)return true;
+            geometry=VehiclePackingGeometry.FromCartAI(upgradeVehicle,level);
+            Plan=null;
+            signature=null;
+            if(tier.Level==2)
+            {
+                if(upgradeDeck==null)
+                {
+                    upgradeDeck=GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    upgradeDeck.name="Lv2 车斗扩展托板";
+                    upgradeDeck.layer=WorldRuntime.EnvironmentLayer;
+                    var renderer=upgradeDeck.GetComponent<Renderer>();
+                    if(renderer!=null)
+                    {
+                        if(upgradeDeckMaterial==null)
+                        {
+                            var shader=Shader.Find("Standard");
+                            if(shader!=null)
+                            {
+                                upgradeDeckMaterial=new Material(shader){name="Lv2DeckMaterial",color=new Color(0.64f,0.64f,0.66f,1f)};
+                                upgradeDeckMaterial.SetFloat("_Metallic",0.35f);
+                                upgradeDeckMaterial.SetFloat("_Glossiness",0.4f);
+                            }
+                        }
+                        if(upgradeDeckMaterial!=null)renderer.sharedMaterial=upgradeDeckMaterial;
+                    }
+                }
+                if(upgradeDeck.transform.parent!=null)upgradeDeck.transform.SetParent(null,false);
+                upgradeDeck.transform.position=geometry.ToWorld(new Vector3(-.525f,-.025f,0f));
+                upgradeDeck.transform.rotation=geometry.rotation;
+                upgradeDeck.transform.localScale=new Vector3(0.21f,0.05f,1.14f);
+                if(upgradeVehicle!=null)upgradeDeck.transform.SetParent(upgradeVehicle,true);
+                upgradeDeck.SetActive(true);
+            }
+            else if(tier.Level==1&&upgradeDeck!=null)
+            {
+                upgradeDeck.SetActive(false);
+            }
+            upgradeLevel=tier.Level;
+            return true;
+        }
+        private void OnDestroy()
+        {
+            if(upgradeDeckMaterial==null)return;
+            if(Application.isPlaying)Destroy(upgradeDeckMaterial);
+            else DestroyImmediate(upgradeDeckMaterial);
+            upgradeDeckMaterial=null;
         }
     }
 }

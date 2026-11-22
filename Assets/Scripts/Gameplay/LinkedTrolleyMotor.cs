@@ -71,8 +71,12 @@ namespace Guochao
             {
                 if (IsAttached || player == null || volume == null) return false;
                 Vector3 delta = player.transform.position - parkedStandingPoint; delta.y = 0;
-                if (delta.sqrMagnitude > .55f * .55f || Mathf.Abs(player.transform.position.y-parkedStandingPoint.y)>.2f) return false;
-                return ClearToPoint(parkedStandingPoint + Vector3.up * .8f);
+                if (delta.sqrMagnitude > .80f * .80f || Mathf.Abs(player.transform.position.y-parkedStandingPoint.y)>.2f) return false;
+                if (!ClearToPoint(parkedStandingPoint + Vector3.up * .8f)) return false;
+                Vector3 start = player.transform.position + Vector3.up * .9f;
+                Vector3 segment = parkedStandingPoint + Vector3.up * .8f - start;
+                if (segment.sqrMagnitude > .000001f && volume.Raycast(new Ray(start, segment.normalized), out _, segment.magnitude)) return false;
+                return true;
             }
         }
 

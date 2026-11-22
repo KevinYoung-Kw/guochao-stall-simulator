@@ -46,7 +46,7 @@ namespace Guochao
         private Material asphalt,stone,cream,brick,paintedInk,ink,metal,leaf,ochre,water;
         private sealed class Hazard { public Transform root;public float distance,lane,radius;public bool seen,puddle; }
 
-        public void Initialize(bool stoveLoaded,Canvas transitionCanvas,string[] equipment=null,float duration=15)
+        public void Initialize(bool stoveLoaded,Canvas transitionCanvas,string[] equipment=null,float duration=15,string[] cargo=null,string[] packages=null)
         {
             TravelDuration=Mathf.Max(1,duration);
             originalCamera=Camera.main;
@@ -59,8 +59,9 @@ namespace Guochao
             StreetShopfrontAssets.Reset();
             for(int i=0;i<3;i++)BuildStreetTile(i);
             Debug.Log("MORNING_TRAVEL_SHOPFRONT replaced="+StreetShopfrontAssets.ReplacedCount+" fallback="+StreetShopfrontAssets.FallbackCount);
-            BuildVehicle(stoveLoaded,equipment);BuildHazard(18,-.85f,false);BuildHazard(35,1.0f,true);BuildHazard(52,-.25f,false);
-            BuildArrival();BuildCamera();BuildOverlay(equipment==null?(stoveLoaded?"B04 已随车出发":"灶台留在家中 · 空车前往超市"):equipment.Length>0?"已装车 "+equipment.Length+" 件家当":"空车前往超市");BuildSound();
+            BuildVehicle(stoveLoaded,equipment,cargo,packages);BuildHazard(18,-.85f,false);BuildHazard(35,1.0f,true);BuildHazard(52,-.25f,false);
+            int loadedCount=(equipment!=null?equipment.Length:0)+(cargo!=null?cargo.Length:0)+(packages!=null?packages.Length:0);
+            BuildArrival();BuildCamera();BuildOverlay(equipment==null?(stoveLoaded?"B04 已随车出发":"灶台留在家中 · 空车前往超市"):loadedCount>0?"已装车 "+loadedCount+" 件家当":"空车前往超市");BuildSound();
             SetLayerRecursively(transform);
             // A single first frame is deterministic; no input, elapsed time or cargo mutation.
             PlaceStreet();PoseVehicle(0);PlaceCamera();
@@ -277,7 +278,7 @@ namespace Guochao
             }
             else{direction.y=0;root.rotation=Quaternion.FromToRotation(direction.normalized,Vector3.right)*root.rotation;}
         }
-        private void BuildVehicle(bool stoveLoaded,string[] equipment)
+        private void BuildVehicle(bool stoveLoaded,string[] equipment,string[] cargo=null,string[] packages=null)
         {
             vehicle=Group("Vehicle logical root",transform);suspension=Group("Visual suspension",vehicle);
             GameObject cart=Model("CartAI",suspension);Face(cart.transform,"CartOrigin","CartForward");
@@ -289,8 +290,8 @@ namespace Guochao
                 // transport pose, including tools and package racks. Keep the
                 // renderer roots under suspension so the whole load moves together.
                 VehicleLoadout loadout=suspension.gameObject.AddComponent<VehicleLoadout>();
-                loadout.Initialize(cart.transform,EquipmentVisualFactory.Create);
-                loadout.PresentTransport(equipment,Array.Empty<string>(),Array.Empty<string>());
+                loadout.Initialize(cart.transform,WorldRuntime.CreateLoadoutVisual);
+                loadout.PresentTransport(equipment,cargo??Array.Empty<string>(),packages??Array.Empty<string>());
                 Debug.Log("MORNING_TRAVEL_LAYOUT items="+loadout.Plan.placements.Count+" validated="+loadout.Plan.FullyValidated);
             }
             else if(stoveLoaded)

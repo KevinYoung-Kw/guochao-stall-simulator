@@ -92,18 +92,18 @@ namespace Guochao
             Cancel();EnsureCanvas();destination=title;description=subtitle;Active=true;group.blocksRaycasts=true;skipRequested=false;
             StartCoroutine(Run(atBlack,finished));
         }
-        public void PlayTravel(bool stoveLoaded,Action atArrival,Action finished,string[] equipment=null,float duration=15)
+        public void PlayTravel(bool stoveLoaded,Action atArrival,Action finished,string[] equipment=null,float duration=15,string[] cargo=null,string[] packages=null)
         {
             Cancel();EnsureCanvas();destination="清晨 · 出发采购";description="出租屋 → 惠民仓储超市";
             Active=true;group.blocksRaycasts=true;skipRequested=false;pauseWasActive=false;skipBlockedThroughFrame=-1;
-            StartCoroutine(RunTravel(stoveLoaded,atArrival,finished,equipment,duration));
+            StartCoroutine(RunTravel(stoveLoaded,atArrival,finished,equipment,duration,cargo,packages));
         }
-        private IEnumerator RunTravel(bool stoveLoaded,Action atArrival,Action finished,string[] equipment,float duration)
+        private IEnumerator RunTravel(bool stoveLoaded,Action atArrival,Action finished,string[] equipment,float duration,string[] cargo,string[] packages)
         {
             yield return Fade(0,1,.30f);
             GameObject stageObject=new GameObject("MorningTravelStage");
             travel=stageObject.AddComponent<CinematicTravelStage>();
-            travel.Initialize(stoveLoaded,group.GetComponent<Canvas>(),equipment,duration);
+            travel.Initialize(stoveLoaded,group.GetComponent<Canvas>(),equipment,duration,cargo,packages);
             EnsureSkipOverlay();skipRequested=false;
             if(skipButton!=null){skipButton.transform.parent.gameObject.SetActive(true);skipButton.interactable=true;skipButton.onClick.RemoveAllListeners();skipButton.onClick.AddListener(SkipTravel);}
             while(!travel.Complete)

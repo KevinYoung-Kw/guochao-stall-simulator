@@ -142,7 +142,9 @@ namespace Guochao
                 // not legal right now", so a highlighted target never refuses
                 // silently or with the wrong instruction.
                 if (!string.IsNullOrEmpty(target))
-                    run.SetMessage(target=="RecoveryCounter"&&candidate.blockedBy=="basket-away"
+                    run.SetMessage(target=="Cashier"&&candidate.blockedBy=="basket-away"
+                        ? "把购物车推到收银台旁，再按 E 结账。"
+                        : target=="RecoveryCounter"&&candidate.blockedBy=="basket-away"
                         ? "把购物车带到回收站旁，再按 E 办理旧货代收。"
                         : target=="SupplyCounter"&&candidate.blockedBy=="basket-away"
                         ? "把购物车带到采购柜台旁，再挑选直购商品。"
@@ -236,10 +238,25 @@ namespace Guochao
 
         public void ToggleShoppingCart()
         {
-            if (run==null || run.Paused || IsBusy || run.Phase!=GamePhase.Market || world?.ShoppingMotor==null ||
-                !string.IsNullOrEmpty(run.HeldGrocery)) return;
-            if(world.ShoppingMotor.IsAttached)world.ShoppingMotor.Detach();
-            else world.ShoppingMotor.TryAttach();
+            if (run==null || run.Paused || IsBusy || run.Phase!=GamePhase.Market || world?.ShoppingMotor==null) return;
+            if (!string.IsNullOrEmpty(run.HeldGrocery))
+            {
+                run.SetMessage(world.ShoppingMotor.IsAttached ? "先放下手中的货物，再按 F 停车。" : "先放下手中的货物，再按 F 接车。");
+                Publish();
+                return;
+            }
+            if (world.ShoppingMotor.IsAttached)
+            {
+                world.ShoppingMotor.Detach();
+                run.SetMessage("购物车已停放，走近把手按 F 接车。");
+            }
+            else
+            {
+                world.ShoppingMotor.TryAttach();
+                run.SetMessage(world.ShoppingMotor.IsAttached
+                    ? "已接手购物车：W 前进，S 后退，A / D 转向。"
+                    : "走到购物车把手旁，再按 F 接车。");
+            }
             world.Sync(run); UpdateFocus(); Publish();
         }
 
@@ -378,8 +395,10 @@ namespace Guochao
             };
             if(travel)
             {
-                var carried=new List<string>(run.LoadedEquipment);carried.AddRange(run.PackingSupplies);
-                transition.PlayTravel(run.StoveLoaded,arrive,finish,run.Profile==null?null:carried.ToArray(),run.Profile?.TravelSeconds??15);
+                string[] equipment=run.Profile==null?null:run.LoadedEquipment.ToArray();
+                string[] cargo=run.Cargo.ToArray();
+                string[] packages=new List<string>(run.PackingSupplies).ToArray();
+                transition.PlayTravel(run.StoveLoaded,arrive,finish,equipment,run.Profile?.TravelSeconds??15,cargo,packages);
             }
             else transition.Play(title,subtitle,arrive,finish);
             Publish();

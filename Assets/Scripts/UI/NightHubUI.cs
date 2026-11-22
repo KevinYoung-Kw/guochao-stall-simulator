@@ -99,7 +99,7 @@ namespace Guochao
             if(day!=null)
             {
                 MoneyColumn(book,-526,day.resaleIncomeCents>0?"营业 / 旧货收款":"营业收款",day.revenueCents+day.resaleIncomeCents,true);
-                MoneyColumn(book,-267,"采购 / 夜间支出",day.purchasesCents+day.nightFuelCents+(int)day.onlinePurchasesCents,false);
+                MoneyColumn(book,-267,"采购 / 夜间支出",day.purchasesCents+day.nightFuelCents+(int)day.onlinePurchasesCents+day.vehicleUpgradeCents,false);
                 MoneyColumn(book,-8,"本日现金变化",day.closingCashCents-day.openingCashCents,true,true);
                 // A01 日终账本：漏收（坏账）与日结时未决债权直接读 CampaignDayLedger
                 // 事实字段；漏收是没收到的钱，不做 −现金 扣款措辞。
@@ -129,7 +129,12 @@ namespace Guochao
             CampaignUI.Text(book,"带回家的东西",new Vector2(456,229),new Vector2(400,46),26,CampaignUI.Ink,TextAnchor.MiddleLeft,true);
             RectTransform stock=CampaignUI.Scroll(book,"Owned stock and equipment",new Vector2(456,-49),new Vector2(414,494),out stockScroll);
             stock.sizeDelta=new Vector2(0,Mathf.Max(494,BuildInventory(stock,state)));
-            CampaignUI.Text(book,"Lv"+state.vehicleLevel+" 摊车  ·  家当都在册",new Vector2(456,-321),new Vector2(400,42),19,CampaignUI.Muted);
+            if(state.vehicleLevel==0||state.vehicleLevel==1)
+                CampaignUI.Button(book,"改电瓶三轮 · ¥1000 / 100→180kg",new Vector2(456,-321),new Vector2(400,48),()=>TryVehicleUpgrade());
+            else if(state.vehicleLevel==2)
+                CampaignUI.Text(book,"Lv2 电瓶三轮 · 5×6 / 180kg",new Vector2(456,-321),new Vector2(400,42),19,CampaignUI.Muted);
+            else
+                CampaignUI.Text(book,"Lv"+state.vehicleLevel+" · 规格尚未接入",new Vector2(456,-321),new Vector2(400,42),19,CampaignUI.Muted);
 
             CampaignUI.Rule(book,new Vector2(0,-358),new Vector2(1318,2));
             CampaignUI.Button(book,"保存进度",new Vector2(-527,-393),new Vector2(242,54),()=>{flow.SaveCampaign();RefreshSaveStatus();});
@@ -221,6 +226,21 @@ namespace Guochao
         }
         private void OnChanged(Snapshot snapshot){RefreshSaveStatus();}
         private void RefreshSaveStatus(){if(saveStatus==null||flow==null)return;string value=CampaignUI.SaveFeedback(flow.SaveStatus);if(saveStatus.text!=value)saveStatus.text=value;}
+        private void TryVehicleUpgrade()
+        {
+            GameFlow game=flow;
+            if(game==null||game.Campaign==null||game.Run==null)return;
+            if(VehicleUpgradeTransaction.TryUpgrade(game.Campaign,game.Run,game.SaveCampaign,out string feedback))
+            {
+                NightHubUI.Open(game);
+                if(instance!=null&&instance.saveStatus!=null)instance.saveStatus.text=feedback;
+            }
+            else
+            {
+                game.World?.Sync(game.Run);
+                if(saveStatus!=null)saveStatus.text=feedback;
+            }
+        }
         private void Update()
         {
             // Keyboard users can inspect both long pages without losing the

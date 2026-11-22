@@ -23,6 +23,7 @@ namespace Guochao
     {
         public int dayIndex,openingCashCents,purchasesCents,nightFuelCents,revenueCents,closingCashCents,served,lost,resaleIncomeCents,unseasonedPortionsServed,integrityChange;
         public long onlinePurchasesCents;
+        public int vehicleUpgradeCents;
         public int emergencyPackagesUsed,packagingScoreDelta;
         // RISK7：A01 坏账与未决债权解释字段（旧档 JsonUtility 补 0；普通无风险日账
         // 保持 0，原有字段与行项目不变）。badDebtCents=已核销坏账面额（不冲减

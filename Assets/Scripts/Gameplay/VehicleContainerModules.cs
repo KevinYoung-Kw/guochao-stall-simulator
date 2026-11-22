@@ -54,7 +54,7 @@ namespace Guochao
             foreach(float x in new[]{-.78f,.78f})
             {
                 parts.Add(new Part("ToolRack_Upright",new Vector3(x,.57f,.67f),new Vector3(.026f,1.16f,.026f)));
-                parts.Add(new Part("Rack_ToDeckBracket",new Vector3(x*.5f,.012f,.585f),new Vector3(Mathf.Abs(x),.025f,.04f)));
+                parts.Add(new Part("Rack_ToDeckBracket",new Vector3(x*.5f,.013f,.585f),new Vector3(Mathf.Abs(x),.025f,.04f)));
             }
             parts.Add(new Part("ToolRack_TopBar",new Vector3(0,1.15f,.67f),new Vector3(1.59f,.026f,.026f)));
             for(int i=0;i<6;i++)parts.Add(new Part("ToolHook_"+i,new Vector3(-.625f+i*.25f,1.117f,.67f),new Vector3(.018f,.06f,.08f),false));

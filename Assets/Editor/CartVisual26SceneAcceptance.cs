@@ -68,6 +68,17 @@ namespace Guochao.Editor
             next.onClick.Invoke();Canvas.ForceUpdateCanvases();yield return null;yield return new WaitForEndOfFrame();report.previousHit=Hit(previous);Need(report.previousHit&&previous.interactable,"previous-page button cannot be hit");
             report.basketPage2=Path.Combine(dir,"receipt-18-page2.png");ScreenCapture.CaptureScreenshot(report.basketPage2);yield return new WaitForEndOfFrame();yield return null;
             Need(File.Exists(report.basketPage1)&&File.Exists(report.basketPage2),"receipt screenshots not written");
+            foreach(Button b in new[]{previous,next}){var label=b.GetComponentInChildren<Text>(true);Need(label.preferredWidth<=label.rectTransform.rect.width+1f&&label.preferredHeight<=label.rectTransform.rect.height+1f,"720p clipped page button: "+label.text);}
+            foreach(string field in new[]{"gridCaption","pager","footnote"}){var t=(Text)typeof(ShoppingReceiptView).GetField(field,flags).GetValue(receipt);Need(t.preferredHeight<=t.rectTransform.rect.height+1f,"720p clipped: "+field+" preferred="+t.preferredHeight+" height="+t.rectTransform.rect.height);}
+            var note=(Text)typeof(ShoppingReceiptView).GetField("footnote",flags).GetValue(receipt);string savedNote=note.text;
+            foreach(string message in new[]{"购物篮用于选货 · 摊车容量另算","货物已在三轮车上 · 可继续采购或出发","付款完成 · 到门外三轮车旁按 E 装车","先挑选商品 · 只有付款才会扣现金","单价为实际结账价 · 到对应货架可放回","请留在柜台 · 剩余 99.9 秒\n离开会中断，本次不扣款"}){note.text=message;Canvas.ForceUpdateCanvases();Need(note.preferredHeight<=note.rectTransform.rect.height+1f,"clipped footer: "+message+" preferred="+note.preferredHeight+" height="+note.rectTransform.rect.height);}note.text=savedNote;
+            var size1080=Resize(1920,1080);while(size1080.MoveNext())yield return size1080.Current;
+            Canvas.ForceUpdateCanvases();yield return null;yield return new WaitForEndOfFrame();
+            Need(Hit(previous),"1080p previous-page button cannot be hit");
+            foreach(Button b in new[]{previous,next}){var label=b.GetComponentInChildren<Text>(true);Need(label.preferredWidth<=label.rectTransform.rect.width+1f&&label.preferredHeight<=label.rectTransform.rect.height+1f,"1080p clipped page button: "+label.text);}
+            foreach(string field in new[]{"gridCaption","pager","footnote"}){var t=(Text)typeof(ShoppingReceiptView).GetField(field,flags).GetValue(receipt);Need(t.preferredHeight<=t.rectTransform.rect.height+1f,"1080p clipped: "+field+" preferred="+t.preferredHeight+" height="+t.rectTransform.rect.height);}
+            string receipt1080=Path.Combine(dir,"receipt-18-page2-1080.png");ScreenCapture.CaptureScreenshot(receipt1080);yield return new WaitForEndOfFrame();yield return null;Need(File.Exists(receipt1080),"1080p screenshot missing");
+            var size720=Resize(1280,720);while(size720.MoveNext())yield return size720.Current;
             ui.SetActive(false);
             while(run.Cart.Count>0){int last=run.Cart.Count-1;Need(run.ReturnItem(last,GameCatalog.Find(run.Cart[last]).anchor,true),"return before mixed fixture "+run.Message);}
             foreach(string id in new[]{"B03","V15","rice_small","egg_small","meat_small","dough_small","skewer_small","prepared_small","fruit_small","seasoning_small","P02","S01"})Need(run.AddSupply(id),"mixed purchase "+id+" "+run.Message);
