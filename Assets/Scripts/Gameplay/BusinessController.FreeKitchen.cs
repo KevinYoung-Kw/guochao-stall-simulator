@@ -69,17 +69,22 @@ namespace Guochao
             if(Session==null||!Session.Started)return false;
             if(lane>=0)return TryFreeIngredientAtLane(lane,itemId,ref reason);
             int preferred=SelectedLaneIndex;
+            string preferredReason=null;
             if(preferred>=0&&preferred<Session.Lanes.Length)
             {
                 if(HasPendingFreeInput(preferred,itemId)){reason="这份料已经在拿来的路上";return false;}
-                if(Session.CanAddFreeIngredient(preferred,itemId,out string preferredReason))return EnqueueFreeInput(preferred,itemId);
+                if(CanQueueFreeIngredient(preferred,itemId,out preferredReason,out bool hasPendingOnPreferred))
+                    return EnqueueFreeInput(preferred,itemId,ref reason);
                 reason=preferredReason;
+                if(hasPendingOnPreferred)return false;
             }
-            int free=Session.FindFreeLane(itemId);
+            int reserved=CountReservedFreeInputUnits(itemId);
+            int free=Session.FindFreeLane(itemId,CollectPendingFreeInputs,reserved);
             if(free>=0)
             {
                 if(HasPendingFreeInput(free,itemId)){reason="这份料已经在拿来的路上";return false;}
-                if(Session.CanAddFreeIngredient(free,itemId,out string freeReason))return EnqueueFreeInput(free,itemId);
+                if(CanQueueFreeIngredient(free,itemId,out string freeReason,out _))
+                    return EnqueueFreeInput(free,itemId,ref reason,free!=preferred?preferredReason:null);
                 reason=freeReason;return false;
             }
             if(string.IsNullOrEmpty(reason))reason="没有能下这种料的锅 · 先点一口空锅";
@@ -89,17 +94,83 @@ namespace Guochao
         {
             // 同锅不同料可排队；只有同一料已有未下锅的安排在先才拒绝。
             if(HasPendingFreeInput(lane,itemId)){reason="这份料已经在拿来的路上";return false;}
-            if(!Session.CanAddFreeIngredient(lane,itemId,out reason))return false;
-            return EnqueueFreeInput(lane,itemId);
+            if(!CanQueueFreeIngredient(lane,itemId,out reason,out _))return false;
+            return EnqueueFreeInput(lane,itemId,ref reason);
         }
-        private bool EnqueueFreeInput(int lane,string itemId)
+        private bool CanQueueFreeIngredient(int lane,string itemId,out string reason,out bool hasPendingOnLane)
+        {
+            var pending=CollectPendingFreeInputs(lane);
+            hasPendingOnLane=pending.Count>0;
+            int reserved=CountReservedFreeInputUnits(itemId);
+            if(Session.CanAddFreeIngredient(lane,itemId,pending,reserved,out reason))return true;
+            if(!string.IsNullOrEmpty(reason)&&!string.IsNullOrEmpty(itemId))
+            {
+                string internalName=BusinessSession.Name(itemId);
+                string playerName=BusinessWorldHUD.ShortItem(itemId);
+                if(!string.IsNullOrEmpty(internalName)&&!string.IsNullOrEmpty(playerName)&&internalName!=playerName)
+                    reason=reason.Replace(internalName,playerName);
+            }
+            return false;
+        }
+        // 只读预测：本锅尚未 committed 的 activeWork + pendingWork 中的自由投料，按实际先后顺序。
+        private IReadOnlyList<string> CollectPendingFreeInputs(int lane)
+        {
+            var inputs=new List<string>();
+            if(activeWork!=null&&activeWork.freeInput&&!activeWork.committed&&activeWork.lane==lane&&!string.IsNullOrEmpty(activeWork.item))
+                inputs.Add(activeWork.item);
+            foreach(WorkIntent work in pendingWork)
+                if(work.freeInput&&!work.committed&&work.lane==lane&&!string.IsNullOrEmpty(work.item))
+                    inputs.Add(work.item);
+            return inputs;
+        }
+        // 统计所有锅位尚未 committed 的同 SKU 投料意向，防止多锅预订超库存（已 committed 不二次占用）。
+        private int CountReservedFreeInputUnits(string itemId)
+        {
+            if(string.IsNullOrEmpty(itemId))return 0;
+            int count=0;
+            if(activeWork!=null&&activeWork.freeInput&&!activeWork.committed&&activeWork.item==itemId)count++;
+            foreach(WorkIntent work in pendingWork)
+                if(work.freeInput&&!work.committed&&work.item==itemId)count++;
+            return count;
+        }
+        // 仅当同锅有尚未接触/未 committed 且锅仍在 Prep 的开火动作时，才允许安全中断并重排。
+        private bool CanDeferActiveFreeStart(int lane)
+        {
+            if(activeWork==null||!activeWork.freeStart||activeWork.committed||activeWork.lane!=lane)return false;
+            if(Session==null||lane<0||lane>=Session.Lanes.Length)return false;
+            if(Session.Lanes[lane].step!=KitchenStep.Prep||Session.Lanes[lane].freeBatch==null)return false;
+            if(Stage!=null&&Stage.WorkAudit!=null&&Stage.WorkAudit.contactCommitted)return false;
+            return true;
+        }
+        private static string FormatFreeInputHint(int lane,string itemId,string fallbackReason)
+        {
+            string action="拿"+BusinessWorldHUD.ShortItem(itemId)+" → "+(lane+1)+"号锅";
+            if(string.IsNullOrEmpty(fallbackReason))return action;
+            string detail=fallbackReason.EndsWith("。",StringComparison.Ordinal)?fallbackReason:fallbackReason+"。";
+            return detail+"已安排"+action;
+        }
+        private bool EnqueueFreeInput(int lane,string itemId,ref string reason,string fallbackReason=null)
         {
             if(!KitchenHandsAvailable())return false;
-            if(pendingWork.Count>=PendingWorkCapacity)return InteractionRejected("待办满了 · 先等手头的事做完");
+            bool deferActiveStart=CanDeferActiveFreeStart(lane);
+            int requiredSlots=deferActiveStart?2:1;
+            if(pendingWork.Count+requiredSlots>PendingWorkCapacity)
+            {
+                reason="待办满了 · 先等手头的事做完";
+                return InteractionRejected(reason);
+            }
+            WorkIntent deferredStart=null;
+            if(deferActiveStart)
+            {
+                deferredStart=activeWork;activeWork=null;
+                Stage?.CancelWork();
+                deferredStart.startedAt=-1;deferredStart.contactAt=-1;deferredStart.pathStart=0;
+            }
             SelectedLaneIndex=lane;
             var work=new WorkIntent{kind=StallInteractionKind.Ingredient,lane=lane,order=-1,item=itemId,step=KitchenStep.Idle,label="投料",freeInput=true};
             work.id=++workSerial;work.queuedAt=Session.Elapsed;pendingWork.Add(work);
-            ShowInteractionHint("拿"+BusinessWorldHUD.ShortItem(itemId)+" → "+(lane+1)+"号锅");
+            if(deferredStart!=null)pendingWork.Add(deferredStart);
+            ShowInteractionHint(FormatFreeInputHint(lane,itemId,fallbackReason));
             InteractionChanged?.Invoke();
             if(!pumping)PumpWork();return true;
         }

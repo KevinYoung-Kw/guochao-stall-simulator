@@ -46,11 +46,46 @@ namespace Guochao
             }
             return options;
         }
-        static FoodInput[] WithIngredient(FreeKitchenBatch batch,string itemId)
+        static void AppendIngredient(List<FoodInput> inputs,string itemId)
         {
-            var inputs=new List<FoodInput>();bool found=false;
-            if(batch!=null)foreach(var input in batch.inputs){var copy=input.Copy();if(copy.itemId==itemId){copy.units++;found=true;}inputs.Add(copy);}
-            if(!found)inputs.Add(new FoodInput(itemId,1));return inputs.ToArray();
+            if(string.IsNullOrEmpty(itemId))return;
+            foreach(var input in inputs)if(input.itemId==itemId){input.units++;return;}
+            inputs.Add(new FoodInput(itemId,1));
+        }
+        static FoodInput[] WithIngredients(FreeKitchenBatch batch,IReadOnlyList<string> pendingInputs,string itemId)
+        {
+            var inputs=new List<FoodInput>();
+            if(batch!=null&&batch.inputs!=null)foreach(var input in batch.inputs)if(input!=null)inputs.Add(input.Copy());
+            if(pendingInputs!=null)foreach(string pending in pendingInputs)AppendIngredient(inputs,pending);
+            AppendIngredient(inputs,itemId);
+            return inputs.ToArray();
+        }
+        static FoodInput[] WithIngredient(FreeKitchenBatch batch,string itemId)=>WithIngredients(batch,null,itemId);
+        static string BuildFreeIncompatibleReason(int laneIndex,FreeKitchenBatch batch,FoodInput[] next,string itemId,bool hasQueued)
+        {
+            string laneLabel=(laneIndex+1)+"号锅";
+            string itemName=Name(itemId);
+            if(batch!=null&&batch.method!="")
+            {
+                var locked=FreeKitchenRules.FindMethod(batch.method);
+                if(locked!=null&&!FreeKitchenRules.MethodAcceptsMaterial(locked,itemId))
+                    return laneLabel+"已定"+locked.label+"做法，不能加"+itemName+"，请换锅位。";
+                return laneLabel+"按"+(locked!=null?locked.label:"当前")+"做法装不下"+itemName+"，请换锅位。";
+            }
+            bool anyMethodAcceptsAll=false;
+            foreach(var def in FreeKitchenRules.Methods)
+            {
+                bool ok=true;
+                foreach(var input in next)if(!FreeKitchenRules.MethodAcceptsMaterial(def,input.itemId)){ok=false;break;}
+                if(ok){anyMethodAcceptsAll=true;break;}
+            }
+            if(!anyMethodAcceptsAll)
+            {
+                if(hasQueued)return laneLabel+"已安排的食材不能和"+itemName+"一起做，请换锅位。";
+                if(batch!=null&&batch.inputs!=null&&batch.inputs.Length>0)return laneLabel+"里的食材不能和"+itemName+"一起做，请换锅位。";
+            }
+            if(hasQueued)return laneLabel+"加上已安排的食材装不下或设备不适配"+itemName+"，请换锅位。";
+            return "这套锅具装不下，或做不了这份搭配。";
         }
         // Preview for the departure checklist, before any equipment is occupied.
         internal void GetStockedFreeMethods(List<string> result)
@@ -76,32 +111,50 @@ namespace Guochao
             foreach(var def in FreeOptions(inputs,laneIndex))result.Add(def.id);return result.ToArray();
         }
         public bool CanAddFreeIngredient(int laneIndex,string itemId,out string reason)
+            =>CanAddFreeIngredient(laneIndex,itemId,null,0,out reason);
+
+        public bool CanAddFreeIngredient(int laneIndex,string itemId,IReadOnlyList<string> pendingLaneInputs,int reservedItemUnits,out string reason)
         {
             reason="";
             if(!Started||Finished){reason="先开摊再备菜。";return false;}
             if(laneIndex<0||laneIndex>=Lanes.Length){reason="没有这个锅位。";return false;}
             if(!FreeKitchenRules.IsAddableIngredient(itemId)){reason="这件物品不能直接下锅。";return false;}
-            if(Count(itemId)<1){reason=Name(itemId)+"用完了。";return false;}
+            int reserved=Math.Max(0,reservedItemUnits);
+            if(Count(itemId)-reserved<1)
+            {
+                reason=Count(itemId)<1?Name(itemId)+"用完了。":Name(itemId)+"已全部安排进待办，库存不够再加。";
+                return false;
+            }
             var lane=Lanes[laneIndex];var batch=lane.freeBatch;
             if(batch==null&&(lane.step!=KitchenStep.Idle||lane.orderId>=0||lane.reservedOrderId>=0||lane.eggPrepPortions>0)
                 ||batch!=null&&(lane.step!=KitchenStep.Prep||batch.product!=null)){reason="这口锅正忙，换个空锅。";return false;}
-            var next=WithIngredient(batch,itemId);var options=FreeOptions(next,laneIndex);
+            var next=WithIngredients(batch,pendingLaneInputs,itemId);var options=FreeOptions(next,laneIndex);
             if(batch!=null&&batch.method!="")options.RemoveAll(method=>method.id!=batch.method);
-            if(options.Count==0){reason="这套锅具装不下，或做不了这份搭配。";return false;}
+            if(options.Count==0)
+            {
+                bool hasQueued=pendingLaneInputs!=null&&pendingLaneInputs.Count>0;
+                reason=BuildFreeIncompatibleReason(laneIndex,batch,next,itemId,hasQueued);
+                return false;
+            }
             return true;
         }
 
-        public int FindFreeLane(string itemId)
+        public int FindFreeLane(string itemId)=>FindFreeLane(itemId,null,0);
+
+        public int FindFreeLane(string itemId,Func<int,IReadOnlyList<string>> pendingInputsForLane,int reservedItemUnits)
         {
             if(!FreeKitchenRules.IsAddableIngredient(itemId))return -1;
             int idle=-1;
             for(int i=0;i<Lanes.Length;i++)
             {
                 KitchenLane lane=Lanes[i];
-                if(lane.freeBatch!=null&&lane.freeBatch.product==null&&lane.step==KitchenStep.Prep
-                    &&CanAddFreeIngredient(i,itemId,out _))return i;
-                if(idle<0&&lane.freeBatch==null&&lane.step==KitchenStep.Idle&&lane.orderId<0&&lane.reservedOrderId<0
-                    &&CanAddFreeIngredient(i,itemId,out _))idle=i;
+                var pending=pendingInputsForLane==null?null:pendingInputsForLane(i);
+                bool hasPending=pending!=null&&pending.Count>0;
+                if((lane.freeBatch!=null&&lane.freeBatch.product==null&&lane.step==KitchenStep.Prep
+                    ||lane.freeBatch==null&&lane.step==KitchenStep.Idle&&lane.orderId<0&&lane.reservedOrderId<0&&lane.eggPrepPortions==0&&hasPending)
+                    &&CanAddFreeIngredient(i,itemId,pending,reservedItemUnits,out _))return i;
+                if(idle<0&&!hasPending&&lane.freeBatch==null&&lane.step==KitchenStep.Idle&&lane.orderId<0&&lane.reservedOrderId<0&&lane.eggPrepPortions==0
+                    &&CanAddFreeIngredient(i,itemId,pending,reservedItemUnits,out _))idle=i;
             }
             return idle;
         }
